@@ -1,0 +1,34 @@
+{
+  "name": "syync-worker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:worker": "tsx src/worker.ts",
+    "format": "prettier --write .",
+    "dev:discovery": "tsx src/discovery-worker.ts",
+    "build": "tsc",
+    "start:worker": "node dist/worker.js"
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.3.2",
+    "@types/pg": "^8.16.0",
+    "prettier": "^3.8.1",
+    "prisma": "^7.4.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.4.1",
+    "@prisma/client": "^7.4.1",
+    "bullmq": "^5.70.1",
+    "dotenv": "^17.3.1",
+    "ioredis": "^5.9.3",
+    "pg": "^8.19.0",
+    "save-dev": "^0.0.1-security"
+  }
+}
