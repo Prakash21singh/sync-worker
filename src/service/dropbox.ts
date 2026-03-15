@@ -165,7 +165,7 @@ export class Dropbox implements StorageAdapter {
         include_media_info: true,
         include_mounted_folders: true,
         include_non_downloadable_files: true,
-        path: parentSource || '',
+        path: `${parentSource.startsWith('/') ? parentSource : `/${parentSource}`}` || '',
         recursive: false,
       }),
     });
