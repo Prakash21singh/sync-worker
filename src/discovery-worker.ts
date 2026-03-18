@@ -2,7 +2,7 @@ import { Worker } from 'bullmq';
 import { redis } from './lib/redis';
 import type { NormalizedFile } from './types';
 import { migrationQueue } from './queue/migration-queue';
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import {
   createMigrationFiles,
   findAdapter,
@@ -12,8 +12,6 @@ import {
   updateMigration,
 } from './queries';
 import { fetchFilesRecursively, rotateToken } from './utils/function';
-
-dotenv.config({});
 
 const discoveryWorker = new Worker(
   process.env.DISCOVERY_QUEUE_NAME!,

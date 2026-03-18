@@ -10,8 +10,6 @@ export const findAdapter = async ({ userId, id }: { userId: string; id: string }
   });
 };
 
-
-
 export const updateAdapter = async ({ id, data }: { id: string; data: AdpaterUpdate }) => {
   await prisma.adapter.update({
     where: {

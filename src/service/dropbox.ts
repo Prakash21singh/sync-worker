@@ -1,5 +1,5 @@
 import type { MigrationSelection } from '../../prisma/generated/prisma/client';
-import type { StorageAdapter } from '../types';
+import type { DropboxFolderCreationParams, StorageAdapter } from '../types';
 
 type BodyInit = Blob | FormData | URLSearchParams | ReadableStream<Uint8Array> | string;
 
@@ -21,11 +21,6 @@ type DropboxFolderEntry = {
   path_display: string;
   id: string;
   size: number;
-};
-
-type CreateFolderArgs = {
-  parentPath: string;
-  accessToken: string;
 };
 
 export class Dropbox implements StorageAdapter {
@@ -89,7 +84,7 @@ export class Dropbox implements StorageAdapter {
   async createFolder({
     accessToken,
     parentPath,
-  }: CreateFolderArgs): Promise<DropboxCreateFolderResponse> {
+  }: DropboxFolderCreationParams): Promise<DropboxCreateFolderResponse> {
     const endpoint = process.env.DROPBOX_BASE_FOLDER_API;
 
     if (!endpoint) {

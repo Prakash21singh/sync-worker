@@ -1,152 +1,117 @@
 import { Worker } from 'bullmq';
 import { redis } from './lib/redis';
-import { prisma } from './lib/prisma';
 import { AdapterFactory } from './service/adapter-factory';
-import { getExportConfig } from './utils/export-type';
 import { generateFileConfig } from './utils';
+import {
+  findAdapter,
+  findMigration,
+  findMigrationFiles,
+  updateMigration,
+  updateMigrationFile,
+} from './queries';
+import { buildFolderPaths } from './utils/function';
+import type { FileWithStatus, MigrationJobBody } from './types';
 
 const worker = new Worker(
   'migration-queue',
   async (job) => {
     if (job.name === 'start-migration') {
-      const { userId, migrationId } = job.data;
+      const { userId, migrationId } = job.data as MigrationJobBody;
 
-      const migration = await prisma.migration.findUnique({
-        where: {
-          id: migrationId,
-          userId,
-        },
-      });
+      const migration = await findMigration({ userId, migrationId });
 
-      if (!migration) return null;
+      if (!migration) throw new Error('Migration not found!');
 
-      const [sourceAdapter, destinationAdapter] = await Promise.all([
-        prisma.adapter.findUnique({
-          where: {
-            id: migration.sourceAdapterId,
-          },
-        }),
-        prisma.adapter.findUnique({
-          where: {
-            id: migration.destinationAdapterId,
-          },
-        }),
+      const [sourceAdapter, destinationAdapter, files] = await Promise.all([
+        findAdapter({ id: migration.sourceAdapterId, userId }),
+        findAdapter({ id: migration.destinationAdapterId, userId }),
+        findMigrationFiles(migration.id),
       ]);
 
-      const files = await prisma.migrationFile.findMany({
-        where: {
-          migrationId: migration.id,
-        },
-      });
+      if (!sourceAdapter) throw new Error('Source Adapter Not Found!');
+      if (!destinationAdapter) throw new Error('Destination Adapter Not Found!');
 
-      let folderPathSet = new Set();
-      let folderPathMap = new Map();
+      if (!destinationAdapter.access_token || !sourceAdapter.access_token)
+        throw new Error(`
+        ${!destinationAdapter.access_token ? 'Destination' : 'Source'} token not found
+      `);
 
-      if (sourceAdapter!.adapter_type === 'GOOGLE_DRIVE') {
-        for (const file of files) {
-          const parts = file.path.split('/');
-          let current = '';
+      let folderIdMap = new Map<string, string>();
+      const folders = buildFolderPaths(files);
+      const DestinationAdapter = AdapterFactory.getAdapter(destinationAdapter.adapter_type);
 
-          for (let i = 0; i < parts.length - 1; i++) {
-            current = current ? `${current}/${parts[i]}` : parts[i]!;
-            folderPathSet.add(current);
-          }
-        }
+      // Create all the folders on the Destination Cloud Provider.
+      for (const folder of folders) {
+        const parentFolder = folder.split("/").slice(0, -1).join("/")
+        const parentId = folderIdMap.get(parentFolder);
+        let folderName = folder.split('/').at(-1);
 
-        let folders = [...folderPathSet];
+        let createdFolder = await DestinationAdapter.createFolder({
+          accessToken: destinationAdapter.access_token,
+          parentPath: folder as string,
+          folderName,
+          parentId,
+        });
 
-        folders.sort((a: any, b: any) => a.split('/').length - b.split('/').length);
-
-        const DestinationAdapter = AdapterFactory.getAdapter(destinationAdapter!.adapter_type);
-
-        // Create all the folders on the Destination Cloud Provider.
-        for (const folder of folders) {
-          const createdFolder = await DestinationAdapter.createFolder({
-            accessToken: destinationAdapter!.access_token!,
-            parentPath: folder as string,
-          });
-
-          folderPathMap.set(folder, createdFolder.id);
-        }
-
-        const SourceProvider = AdapterFactory.getAdapter(sourceAdapter?.adapter_type!);
-
-        const BATCH_SIZE = 3;
-
-        for (let i = 0; i < files.length; i += BATCH_SIZE) {
-          let batchFiles = files.slice(i, i + BATCH_SIZE);
-
-          let requests = batchFiles.map(async (file) => {
-            const fileConfig = generateFileConfig(file.mimeType!, file.path, file.name);
-
-            console.log('Downloading config', {
-              mimeType: file.mimeType!,
-              fileName: file.name,
-              exportType: fileConfig.mimeType!,
-              generatedPath: fileConfig.generatedPath,
-            });
-            const stream = await SourceProvider.downloadFile(
-              file.mimeType!,
-              file.sourceFileId,
-              sourceAdapter!.access_token!,
-              fileConfig.mimeType!,
-            );
-
-            console.log(stream);
-
-            if (!stream) throw new Error('Error downloading files');
-
-            await DestinationAdapter.uploadFile(
-              stream,
-              fileConfig.generatedPath!,
-              destinationAdapter!.access_token!,
-            );
-            await prisma.migrationFile.update({
-              where: {
-                id: file.id,
-              },
-              data: {
-                status: 'COMPLETED',
-              },
-            });
-          });
-
-          await Promise.allSettled(requests);
-        }
-      } else if (sourceAdapter!.adapter_type === 'DROPBOX') {
+        if (createdFolder) folderIdMap.set(folder, createdFolder.id);
       }
 
-      await prisma.migration.update({
-        where: {
-          id: migrationId,
-        },
-        data: {
-          status: 'COMPLETED',
-        },
+      const SourceProvider = AdapterFactory.getAdapter(sourceAdapter.adapter_type);
+
+      const BATCH_SIZE = 3;
+      // TODO: Handle the function calls in this, different providers have different way of downloading and uploading file
+      /**
+       * @task Create function like this
+       * ```
+       * function downloadFile({
+       *    Google: {
+       *      mimeType,
+       *      fileId,
+       *      mimeType,
+       *      exportType
+       *    },
+       *    Dropbox: {
+       *      fileId, 
+       *      accessToken,
+       *      ...args
+       *    },
+       * }){
+       *    // Handling
+       * }
+       * ```
+       */
+      // function downloadFile(){
+
+      // }
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        let fileBatch = files.slice(i, i + BATCH_SIZE);
+
+        let transferTasks = fileBatch.map(async (file) => {
+          const fileConfig = generateFileConfig(file.mimeType!, file.path, file.name);
+
+          const stream = await SourceProvider.downloadFile(
+            file.mimeType!,
+            file.sourceFileId,
+            sourceAdapter!.access_token!,
+            fileConfig.mimeType!,
+          );
+
+          if (!stream) throw new Error('Error downloading files');
+
+          await DestinationAdapter.uploadFile(
+            stream,
+            fileConfig.generatedPath!,
+            destinationAdapter!.access_token!,
+          );
+          await updateMigrationFile(file.id, 'COMPLETED');
+        });
+
+        await Promise.allSettled(transferTasks);
+      }
+
+      await updateMigration(migrationId, {
+        status: 'COMPLETED',
       });
-
-      // Get the body;
-      // Get the migration
-      // Get the source adapter
-      // Get the destination adapter
-      // Get all the files in this migration
-      // Sort the files into two type smallerFiles and biggerFiles
-      // loop over all files to upload 5 smaller and 1 bigger parallely
-      // Inside loop
-      // Download files
-      // If token expires
-      // Rotate Token
-      // Save to DB
-      // Else stop the entire process and Fail the migration with the reason.
-
-      // Upload file
-      // If token expires
-      // Rotate token
-      // Save to DB
-      // Else stop the entire process and fail the migration with the reason.
-      // Files uplaoded
-      // Update the migration db
-      // Pick another migration
     }
   },
   {

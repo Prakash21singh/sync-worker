@@ -1,3 +1,4 @@
+import type { MigrationFileStatus } from '../../prisma/generated/prisma/enums';
 import { prisma } from '../lib/prisma';
 
 export const findMigration = async ({
@@ -35,5 +36,24 @@ export const updateMigration = async (id: string, data: Record<string, any>) => 
 export const createMigrationFiles = async (data: any[]) => {
   return await prisma.migrationFile.createMany({
     data: data,
+  });
+};
+
+export const findMigrationFiles = async (migrationId: string) => {
+  return await prisma.migrationFile.findMany({
+    where: {
+      migrationId,
+    },
+  });
+};
+
+export const updateMigrationFile = async (id: string, status: MigrationFileStatus) => {
+  return await prisma.migrationFile.update({
+    where: {
+      id,
+    },
+    data: {
+      status,
+    },
   });
 };

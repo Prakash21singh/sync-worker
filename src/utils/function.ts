@@ -1,4 +1,4 @@
-import type { Adapter } from '../../prisma/generated/prisma/client';
+import type { Adapter, MigrationFile } from '../../prisma/generated/prisma/client';
 import { AdapterFactory } from '../service/adapter-factory';
 
 /**
@@ -165,4 +165,38 @@ export async function fetchFilesRecursively(
   }
 
   return result;
+}
+
+/**
+ * @returns Folders paths
+ * @description Build folder path and in length based sorting so parent folder get's created first
+ * @example ```
+ *
+ * const folders = [
+ *  "/FolderA",
+ *  "/FolderB",
+ *  "/FolderC",
+ *  "/FolderA/DeepFolderA",
+ *  "/FolderC/DeepFolderC",
+ *  "/FolderA/DeepFolderA/DeepFolderDeepA"
+ *  "FolderC/DeepFolderC/DeepFolderDeepC"
+ * ]
+ * ```
+ */
+export function buildFolderPaths(files: MigrationFile[]) {
+  const folderPaths = new Set<string>();
+
+  for (const file of files) {
+    const parts = file.path.split('/');
+
+    let current = '';
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      current = current ? `${current}/${parts[i]}` : (parts[i] ?? '');
+    }
+
+    folderPaths.add(current);
+  }
+
+  return [...folderPaths].sort((a, b) => a.split('/').length - b.split('/').length);
 }

@@ -1,4 +1,9 @@
-import type { GoogleDriveFile, StorageAdapter } from '../types';
+import type {
+  GoogleDriveFile,
+  GoogleDriveFolderCreationParams,
+  GoogleDriveFolderCreationResponse,
+  StorageAdapter,
+} from '../types';
 
 export class GoogleDrive implements StorageAdapter {
   baseUrl: string;
@@ -36,8 +41,34 @@ export class GoogleDrive implements StorageAdapter {
     throw new Error('Not implemented for Google Drive');
   }
 
-  async createFolder(): Promise<any> {
-    throw new Error('Not implemented for Google Drive');
+  async createFolder({
+    accessToken,
+    folderName,
+    parentId,
+  }: GoogleDriveFolderCreationParams): Promise<{ id: string } | null> {
+    try {
+      const response = await fetch(process.env.GOOGLE_DRIVE_BASE_URL!, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: parentId ? [parentId] : [],
+        }),
+      });
+
+      const result = (await response.json()) as GoogleDriveFolderCreationResponse;
+
+      return {
+        id: result.id,
+      };
+    } catch (error: any) {
+      console.error('Error:', error);
+      return null;
+    }
   }
 
   async listFiles(args: {
@@ -45,8 +76,6 @@ export class GoogleDrive implements StorageAdapter {
     parentPath: string | null;
     access_token: string;
   }): Promise<any> {
-    console.log("Here we're trying to connect to google");
-    console.log({ ...args });
     const { access_token, parentPath, parentSource } = args;
     let files = [];
 
