@@ -6,6 +6,7 @@ import type {
   GoogleDriveUploadRequest,
   GoogleDriveCreateFolderRequest,
   GoogleDriveListFilesRequest,
+  MigrationFilePayload,
 } from '../types';
 import { retryWithBackoff } from '../utils/function';
 
@@ -42,15 +43,26 @@ export class GoogleDrive implements StorageAdapter<
   }
 
   buildUploadRequest(
-    destinationPath: string,
-    stream: ReadableStream | NodeJS.ReadableStream,
+    file: MigrationFilePayload,
+    data: Uint8Array,
     accessToken: string,
+    folderIdMap: Map<string, string>,
   ): GoogleDriveUploadRequest {
-    return {
-      pathname: destinationPath,
-      stream,
+    const parentPath = file.path ? file.path.split('/').slice(1, -1).join('/') : '';
+    const parentId = parentPath ? folderIdMap.get(parentPath) : undefined;
+
+    const request: GoogleDriveUploadRequest = {
+      name: file.name,
+      data,
+      uploadMediaType: file.mimeType || 'application/octet-stream',
       accessToken,
     };
+
+    if (parentId) {
+      request.parentId = parentId;
+    }
+
+    return request;
   }
 
   async downloadFile(
@@ -58,7 +70,7 @@ export class GoogleDrive implements StorageAdapter<
     fileId?: string,
     accessToken?: string,
     exportMimeType?: string | null,
-  ): Promise<ReadableStream | NodeJS.ReadableStream | null> {
+  ): Promise<Uint8Array> {
     let params: GoogleDriveDownloadRequest;
 
     if (typeof paramsOrMimeType === 'string' && fileId && accessToken) {
@@ -93,16 +105,57 @@ export class GoogleDrive implements StorageAdapter<
         throw new Error(`Drive download failed: ${res.status} ${text}`);
       }
 
-      return res.body;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      return buffer;
     };
 
     return retryWithBackoff(fetchFn, 4, 500);
   }
 
   async uploadFile(params: TUploadFileParams): Promise<any> {
-    const { accessToken, pathname, stream } = params;
-    // Google Drive multipart upload not implemented yet; use an API wrapper when available.
-    throw new Error('Google Drive upload is not implemented');
+    const { accessToken, name, parentId, data, uploadMediaType } = params;
+
+    const boundary = `-------${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const fileMetadata = {
+      name,
+      parents: parentId ? [parentId] : [],
+    };
+
+    const metadataPart = Buffer.from(
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(fileMetadata)}\r\n`,
+      'utf8',
+    );
+
+    const filePartHeader = Buffer.from(
+      `--${boundary}\r\nContent-Type: ${uploadMediaType ?? 'application/octet-stream'}\r\n\r\n`,
+      'utf8',
+    );
+    const footer = Buffer.from(`\r\n--${boundary}--`, 'utf8');
+
+    const body = Buffer.concat([metadataPart, filePartHeader, Buffer.from(data), footer]);
+
+    const uploadFn = async () => {
+      const response = await fetch(`${process.env.GOOGLE_DRIVE_FILE_UPLOAD_URL ?? `${this.baseUrl}/upload/drive/v3/files`}?uploadType=multipart`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        if (response.status === 429) {
+          throw new Error(`Google Drive upload rate limit: ${response.status} ${text}`);
+        }
+        throw new Error(`Google Drive upload failed: ${response.status} ${text}`);
+      }
+
+      return await response.json();
+    };
+
+    return retryWithBackoff(uploadFn, 4, 1000);
   }
 
   async createFolder(params: TCreateFolderParams) {

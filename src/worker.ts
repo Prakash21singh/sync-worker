@@ -10,12 +10,13 @@ import {
   updateMigrationFile,
 } from './queries';
 import { buildFolderPaths } from './utils/function';
-import type { FileWithStatus, MigrationJobBody } from './types';
+import type { MigrationJobBody } from './types';
 
 const worker = new Worker(
   'migration-queue',
   async (job) => {
-    if (job.name === 'start-migration') {
+    try {
+      if (job.name === 'start-migration') {
       const { userId, migrationId } = job.data as MigrationJobBody;
 
       const migration = await findMigration({ userId, migrationId });
@@ -38,6 +39,7 @@ const worker = new Worker(
 
       let folderIdMap = new Map<string, string>();
       const folders = buildFolderPaths(files);
+
       const DestinationAdapter = AdapterFactory.getAdapter(destinationAdapter.adapter_type);
 
       // Create all the folders on the Destination Cloud Provider.
@@ -68,39 +70,37 @@ const worker = new Worker(
 
       const BATCH_SIZE = 3;
 
-      // a provider-specific request is created inside adapter for type safety.
       for (let i = 0; i < files.length; i += BATCH_SIZE) {
         const fileBatch = files.slice(i, i + BATCH_SIZE);
 
         const transferTasks = fileBatch.map(async (file) => {
-          const fileConfig = generateFileConfig(file.mimeType!, file.path, file.name);
+          const fileConfig = generateFileConfig(file.mimeType, file.path, file.name);
+          const filePayload = {
+            sourceId: file.sourceFileId,
+            path: file.path,
+            name: file.name,
+            mimeType: file.mimeType,
+          };
 
           const downloadRequest = SourceProvider.buildDownloadRequest
-            ? SourceProvider.buildDownloadRequest(
-                { sourceId: file.sourceFileId, mimeType: file.mimeType },
-                sourceAdapter!.access_token!,
-              )
+            ? SourceProvider.buildDownloadRequest(filePayload, sourceAdapter.access_token!)
             : ({
                 fileId: file.sourceFileId,
                 mimeType: file.mimeType || 'application/octet-stream',
                 accessToken: sourceAdapter!.access_token!,
               } as any);
 
-          const stream = await SourceProvider.downloadFile(downloadRequest);
+          const data = await SourceProvider.downloadFile(downloadRequest);
 
-          if (!stream) {
+          if (!data || data.length === 0) {
             throw new Error(`Error downloading file ${file.name}`);
           }
 
           const uploadRequest = DestinationAdapter.buildUploadRequest
-            ? DestinationAdapter.buildUploadRequest(
-                fileConfig.generatedPath!,
-                stream,
-                destinationAdapter!.access_token!,
-              )
+            ? DestinationAdapter.buildUploadRequest(filePayload, data, destinationAdapter!.access_token!, folderIdMap)
             : ({
                 pathname: fileConfig.generatedPath!,
-                stream,
+                data,
                 accessToken: destinationAdapter!.access_token!,
               } as any);
 
@@ -129,6 +129,9 @@ const worker = new Worker(
         completedFiles: completedCount,
         failedFiles: failedCount,
       });
+    }
+    } catch (error: any) {
+      console.error('Error:', error);
     }
   },
   {

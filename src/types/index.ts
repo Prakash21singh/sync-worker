@@ -50,15 +50,44 @@ export interface DropboxDownloadRequest {
 }
 
 export interface GoogleDriveUploadRequest {
-  pathname: string;
-  stream: ReadableStream | NodeJS.ReadableStream;
+  parentId?: string;
+  name: string;
+  data: Uint8Array;
+  uploadMediaType: string;
   accessToken: string;
 }
 
 export interface DropboxUploadRequest {
   pathname: string;
-  stream: ReadableStream | NodeJS.ReadableStream;
+  data: Uint8Array;
   accessToken: string;
+}
+
+export type CloudUploadRequest = GoogleDriveUploadRequest | DropboxUploadRequest;
+
+export interface MigrationFilePayload {
+  sourceId: string;
+  path: string;
+  name: string;
+  mimeType?: string | null;
+}
+
+export interface StorageAdapter<
+  TDownloadParams,
+  TUploadParams,
+  TCreateFolderParams,
+  TListFilesParams,
+> {
+  adapterType: AdapterType;
+
+  downloadFile(params: TDownloadParams): Promise<Uint8Array>;
+  uploadFile(params: TUploadParams): Promise<any>;
+  createFolder(params: TCreateFolderParams): Promise<{ id: string } | null>;
+  listFiles(params: TListFilesParams): Promise<any[]>;
+
+  // convenience helpers for the worker
+  buildDownloadRequest?: (file: MigrationFilePayload, token: string) => TDownloadParams;
+  buildUploadRequest?: (file: MigrationFilePayload, data: Uint8Array, token: string, folderIdMap: Map<string, string>) => TUploadParams;
 }
 
 export interface GoogleDriveCreateFolderRequest {
@@ -83,30 +112,6 @@ export interface DropboxListFilesRequest {
   access_token: string;
 }
 
-export interface StorageAdapter<
-  TDownloadParams,
-  TUploadParams,
-  TCreateFolderParams,
-  TListFilesParams,
-> {
-  adapterType: AdapterType;
-
-  downloadFile(params: TDownloadParams): Promise<ReadableStream | NodeJS.ReadableStream | null>;
-  uploadFile(params: TUploadParams): Promise<any>;
-  createFolder(params: TCreateFolderParams): Promise<{ id: string } | null>;
-  listFiles(params: TListFilesParams): Promise<any[]>;
-
-  // convenience helpers for the worker
-  buildDownloadRequest?: (
-    file: { sourceId: string; mimeType?: string | null },
-    token: string,
-  ) => TDownloadParams;
-  buildUploadRequest?: (
-    destinationPath: string,
-    stream: ReadableStream | NodeJS.ReadableStream,
-    token: string,
-  ) => TUploadParams;
-}
 
 export interface FileWithStatus {
   id: string;

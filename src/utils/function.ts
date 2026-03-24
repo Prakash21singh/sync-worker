@@ -214,18 +214,19 @@ export async function fetchFilesRecursively(
  * ```
  */
 export function buildFolderPaths(files: MigrationFile[]) {
+  // /Alrogithm/Sorting/FireShot Capture 006 - Sanemi Consultants I Aviation Leasing & Finance Solutions - [localhost].png
   const folderPaths = new Set<string>();
-
   for (const file of files) {
+   
     const parts = file.path.split('/');
-
     let current = '';
 
     for (let i = 0; i < parts.length - 1; i++) {
-      current = current ? `${current}/${parts[i]}` : (parts[i] ?? '');
+      if(parts[i] !== ""){
+        current = current !== '' ? `${current}/${parts[i]}` : (parts[i] || "");
+        folderPaths.add(current);
+      }
     }
-
-    folderPaths.add(current);
   }
 
   return [...folderPaths].sort((a, b) => a.split('/').length - b.split('/').length);

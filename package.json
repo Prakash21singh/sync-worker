@@ -8,8 +8,8 @@
     "dev:discovery": "tsx src/discovery-worker.ts",
     "build": "tsc",
     "start:worker": "node dist/worker.js",
-    "format": "biome format .",
-    "lint": "biome check ."
+    "format": "biome format . --write",
+    "lint": "biome check ./**"
   },
   "type": "module",
   "keywords": [],

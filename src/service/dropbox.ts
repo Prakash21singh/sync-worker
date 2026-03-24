@@ -4,6 +4,7 @@ import type {
   DropboxUploadRequest,
   DropboxCreateFolderRequest,
   DropboxListFilesRequest,
+  MigrationFilePayload,
 } from '../types';
 import { retryWithBackoff } from '../utils/function';
 
@@ -33,41 +34,22 @@ export class Dropbox implements StorageAdapter<
     this.baseUrl = baseUrl;
   }
 
-  buildDownloadRequest(file: { sourceId: string }, accessToken: string): DropboxDownloadRequest {
+  buildDownloadRequest(file: MigrationFilePayload, accessToken: string): DropboxDownloadRequest {
     return {
-      path: file.sourceId,
+      path: file.path,
       accessToken,
     };
   }
 
-  buildUploadRequest(
-    destinationPath: string,
-    stream: ReadableStream | NodeJS.ReadableStream,
-    accessToken: string,
-  ): DropboxUploadRequest {
+  buildUploadRequest(file: MigrationFilePayload, data: Uint8Array, accessToken: string): DropboxUploadRequest {
     return {
-      pathname: destinationPath,
-      stream,
+      pathname: file.path,
+      data,
       accessToken,
     };
   }
 
-  async uploadFile(
-    paramsOrStream: TUploadFileParams | ReadableStream | NodeJS.ReadableStream,
-    pathname?: string,
-    accessToken?: string,
-  ): Promise<any> {
-    let params: DropboxUploadRequest;
-
-    if (typeof paramsOrStream !== 'object' || !('pathname' in (paramsOrStream as any))) {
-      params = {
-        stream: paramsOrStream as ReadableStream | NodeJS.ReadableStream,
-        pathname: pathname!,
-        accessToken: accessToken!,
-      };
-    } else {
-      params = paramsOrStream as DropboxUploadRequest;
-    }
+  async uploadFile(params: DropboxUploadRequest): Promise<any> {
 
     const doUpload = async () => {
       const response = await fetch(`${this.baseUrl}/upload`, {
@@ -76,17 +58,16 @@ export class Dropbox implements StorageAdapter<
           Authorization: `Bearer ${params.accessToken}`,
           'Content-Type': 'application/octet-stream',
           'Dropbox-API-Arg': JSON.stringify({
-            path: params.pathname,
+            path: `/${params.pathname}`,
             mode: 'add',
             autorename: true,
             mute: false,
             strict_conflict: false,
           }),
         },
-        body: params.stream as any,
-        duplex: 'half',
+        body: params.data,
       });
-
+      
       if (!response.ok) {
         const text = await response.text();
         if (response.status === 429) {
@@ -137,9 +118,7 @@ export class Dropbox implements StorageAdapter<
     return retryWithBackoff(createFn, 3, 400);
   }
 
-  async downloadFile(
-    params: TDownloadParams,
-  ): Promise<ReadableStream | NodeJS.ReadableStream | null> {
+  async downloadFile(params: TDownloadParams): Promise<Uint8Array> {
     const doDownload = async () => {
       const response = await fetch(process.env.DROPBOX_FILE_DOWNLOAD_URL!, {
         method: 'POST',
@@ -157,15 +136,11 @@ export class Dropbox implements StorageAdapter<
         throw new Error(`Dropbox download failed: ${response.status} ${text}`);
       }
 
-      return response.body;
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
     };
 
-    try {
-      return await retryWithBackoff(doDownload, 4, 500);
-    } catch (error: any) {
-      console.error('Dropbox download error:', error);
-      return null;
-    }
+    return retryWithBackoff(doDownload, 4, 500);
   }
 
   async listFiles(args: TListFileParams) {
