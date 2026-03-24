@@ -42,16 +42,24 @@ const worker = new Worker(
 
       // Create all the folders on the Destination Cloud Provider.
       for (const folder of folders) {
-        const parentFolder = folder.split("/").slice(0, -1).join("/")
+        const parentFolder = folder.split('/').slice(0, -1).join('/');
         const parentId = folderIdMap.get(parentFolder);
-        let folderName = folder.split('/').at(-1);
+        const folderName = folder.split('/').at(-1) ?? '';
 
-        let createdFolder = await DestinationAdapter.createFolder({
-          accessToken: destinationAdapter.access_token,
-          parentPath: folder as string,
-          folderName,
-          parentId,
-        });
+        let createdFolder;
+
+        if (destinationAdapter.adapter_type === 'GOOGLE_DRIVE') {
+          createdFolder = await DestinationAdapter.createFolder({
+            accessToken: destinationAdapter.access_token,
+            folderName,
+            parentId,
+          } as any);
+        } else if (destinationAdapter.adapter_type === 'DROPBOX') {
+          createdFolder = await DestinationAdapter.createFolder({
+            accessToken: destinationAdapter.access_token,
+            parentPath: folder as string,
+          } as any);
+        }
 
         if (createdFolder) folderIdMap.set(folder, createdFolder.id);
       }
@@ -59,58 +67,67 @@ const worker = new Worker(
       const SourceProvider = AdapterFactory.getAdapter(sourceAdapter.adapter_type);
 
       const BATCH_SIZE = 3;
-      // TODO: Handle the function calls in this, different providers have different way of downloading and uploading file
-      /**
-       * @task Create function like this
-       * ```
-       * function downloadFile({
-       *    Google: {
-       *      mimeType,
-       *      fileId,
-       *      mimeType,
-       *      exportType
-       *    },
-       *    Dropbox: {
-       *      fileId, 
-       *      accessToken,
-       *      ...args
-       *    },
-       * }){
-       *    // Handling
-       * }
-       * ```
-       */
-      // function downloadFile(){
 
-      // }
+      // a provider-specific request is created inside adapter for type safety.
       for (let i = 0; i < files.length; i += BATCH_SIZE) {
-        let fileBatch = files.slice(i, i + BATCH_SIZE);
+        const fileBatch = files.slice(i, i + BATCH_SIZE);
 
-        let transferTasks = fileBatch.map(async (file) => {
+        const transferTasks = fileBatch.map(async (file) => {
           const fileConfig = generateFileConfig(file.mimeType!, file.path, file.name);
 
-          const stream = await SourceProvider.downloadFile(
-            file.mimeType!,
-            file.sourceFileId,
-            sourceAdapter!.access_token!,
-            fileConfig.mimeType!,
-          );
+          const downloadRequest = SourceProvider.buildDownloadRequest
+            ? SourceProvider.buildDownloadRequest(
+                { sourceId: file.sourceFileId, mimeType: file.mimeType },
+                sourceAdapter!.access_token!,
+              )
+            : ({
+                fileId: file.sourceFileId,
+                mimeType: file.mimeType || 'application/octet-stream',
+                accessToken: sourceAdapter!.access_token!,
+              } as any);
 
-          if (!stream) throw new Error('Error downloading files');
+          const stream = await SourceProvider.downloadFile(downloadRequest);
 
-          await DestinationAdapter.uploadFile(
-            stream,
-            fileConfig.generatedPath!,
-            destinationAdapter!.access_token!,
-          );
+          if (!stream) {
+            throw new Error(`Error downloading file ${file.name}`);
+          }
+
+          const uploadRequest = DestinationAdapter.buildUploadRequest
+            ? DestinationAdapter.buildUploadRequest(
+                fileConfig.generatedPath!,
+                stream,
+                destinationAdapter!.access_token!,
+              )
+            : ({
+                pathname: fileConfig.generatedPath!,
+                stream,
+                accessToken: destinationAdapter!.access_token!,
+              } as any);
+
+          await DestinationAdapter.uploadFile(uploadRequest);
           await updateMigrationFile(file.id, 'COMPLETED');
         });
 
-        await Promise.allSettled(transferTasks);
+        const results = await Promise.allSettled(transferTasks);
+        for (let idx = 0; idx < results.length; idx += 1) {
+          const result = results[idx];
+          if (result?.status === 'rejected' && fileBatch[idx]) {
+            await updateMigrationFile(fileBatch[idx]!.id, 'FAILED');
+          }
+        }
       }
 
+      const completedCount = await findMigrationFiles(migration.id).then(
+        (mfiles) => mfiles.filter((m) => m.status === 'COMPLETED').length,
+      );
+      const failedCount = await findMigrationFiles(migration.id).then(
+        (mfiles) => mfiles.filter((m) => m.status === 'FAILED').length,
+      );
+
       await updateMigration(migrationId, {
-        status: 'COMPLETED',
+        status: failedCount > 0 ? 'FAILED' : 'COMPLETED',
+        completedFiles: completedCount,
+        failedFiles: failedCount,
       });
     }
   },

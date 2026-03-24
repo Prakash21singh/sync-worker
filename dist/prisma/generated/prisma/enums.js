@@ -11,10 +11,23 @@ export const AdapterName = {
     GOOGLE_DRIVE: 'GOOGLE_DRIVE',
     DROPBOX: 'DROPBOX'
 };
+export const MigrationFileStatus = {
+    PENDING: 'PENDING',
+    TRANSFERRING: 'TRANSFERRING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED'
+};
+export const MigrationSelectionType = {
+    FILE: 'FILE',
+    FOLDER: 'FOLDER'
+};
 export const MigrationStatus = {
     PENDING: 'PENDING',
-    SUCCESS: 'SUCCESS',
+    DISCOVERING: 'DISCOVERING',
+    TRANSFERRING: 'TRANSFERRING',
+    COMPLETED: 'COMPLETED',
     FAILED: 'FAILED',
-    RETRY: 'RETRY'
+    RETRYING: 'RETRYING',
+    SKIPPED: 'SKIPPED'
 };
 //# sourceMappingURL=enums.js.map

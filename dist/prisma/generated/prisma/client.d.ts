@@ -55,6 +55,11 @@ export type AdapterAccountInfo = Prisma.AdapterAccountInfoModel;
  */
 export type Migration = Prisma.MigrationModel;
 /**
+ * Model MigrationSelection
+ *
+ */
+export type MigrationSelection = Prisma.MigrationSelectionModel;
+/**
  * Model MigrationFile
  *
  */

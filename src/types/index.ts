@@ -1,9 +1,11 @@
 import type { MigrationFileStatus } from '../../prisma/generated/prisma/enums';
 
-// you need to get all the files from the source adapter example Google drive
+export type AdapterType = 'GOOGLE_DRIVE' | 'DROPBOX';
+
 export type AdpaterUpdate = {
   [key in string]: any;
 };
+
 export interface GoogleDriveFile {
   id: string;
   parents: string[];
@@ -30,44 +32,80 @@ export interface NormalizedFile {
   migrationId: string;
 }
 
-export type GoogleDriveFolderCreationParams = {
-  folderName: string;
-  accessToken: string;
-  parentId?: string;
-};
-
 export type DropboxFolderCreationParams = {
   parentPath: string;
   accessToken: string;
 };
 
-type FolderCreationParams = GoogleDriveFolderCreationParams | DropboxFolderCreationParams;
+export interface GoogleDriveDownloadRequest {
+  fileId: string;
+  accessToken: string;
+  mimeType?: string | null;
+  exportMimeType?: string | null;
+}
 
-export interface StorageAdapter {
-  downloadFile(
-    mimeType: string,
-    fileId: string,
-    accessToken: string,
-    exportType: string | null,
-  ): Promise<ReadableStream | null>;
+export interface DropboxDownloadRequest {
+  path: string;
+  accessToken: string;
+}
 
-  uploadFile(
+export interface GoogleDriveUploadRequest {
+  pathname: string;
+  stream: ReadableStream | NodeJS.ReadableStream;
+  accessToken: string;
+}
+
+export interface DropboxUploadRequest {
+  pathname: string;
+  stream: ReadableStream | NodeJS.ReadableStream;
+  accessToken: string;
+}
+
+export interface GoogleDriveCreateFolderRequest {
+  accessToken: string;
+  folderName: string;
+  parentId?: string;
+}
+
+export interface DropboxCreateFolderRequest {
+  accessToken: string;
+  parentPath: string;
+}
+
+export interface GoogleDriveListFilesRequest {
+  parentSource: string;
+  parentPath: string | null;
+  access_token: string;
+}
+
+export interface DropboxListFilesRequest {
+  parentSource: string;
+  access_token: string;
+}
+
+export interface StorageAdapter<
+  TDownloadParams,
+  TUploadParams,
+  TCreateFolderParams,
+  TListFilesParams,
+> {
+  adapterType: AdapterType;
+
+  downloadFile(params: TDownloadParams): Promise<ReadableStream | NodeJS.ReadableStream | null>;
+  uploadFile(params: TUploadParams): Promise<any>;
+  createFolder(params: TCreateFolderParams): Promise<{ id: string } | null>;
+  listFiles(params: TListFilesParams): Promise<any[]>;
+
+  // convenience helpers for the worker
+  buildDownloadRequest?: (
+    file: { sourceId: string; mimeType?: string | null },
+    token: string,
+  ) => TDownloadParams;
+  buildUploadRequest?: (
+    destinationPath: string,
     stream: ReadableStream | NodeJS.ReadableStream,
-    pathname: string,
-    accessToken: string,
-  ): Promise<any>;
-
-  createFolder(args: FolderCreationParams): Promise<{ id: string } | null>;
-
-  /**
-   * @description Returns the array of containing files and
-   * @param args
-   */
-  listFiles(args: {
-    parentSource: string;
-    parentPath: string | null;
-    access_token: string;
-  }): Promise<any[]>;
+    token: string,
+  ) => TUploadParams;
 }
 
 export interface FileWithStatus {

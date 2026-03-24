@@ -1,0 +1,20 @@
+{
+  "format": {
+    "indentStyle": "space",
+    "indentSize": 2,
+    "lineWidth": 100,
+    "quotes": "single",
+    "trailingCommas": "all",
+    "semicolons": true,
+    "endOfLine": "lf"
+  },
+  "lint": {
+    "rules": {
+      "no-unused-vars": "error",
+      "no-undef": "error",
+      "consistent-return": "warn",
+      "eqeqeq": "warn",
+      "prettier/prettier": "off"
+    }
+  }
+}

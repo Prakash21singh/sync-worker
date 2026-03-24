@@ -238,6 +238,7 @@ export declare const ModelName: {
     readonly Adapter: "Adapter";
     readonly AdapterAccountInfo: "AdapterAccountInfo";
     readonly Migration: "Migration";
+    readonly MigrationSelection: "MigrationSelection";
     readonly MigrationFile: "MigrationFile";
 };
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
@@ -251,7 +252,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         omit: GlobalOmitOptions;
     };
     meta: {
-        modelProps: "user" | "account" | "session" | "verification" | "adapter" | "adapterAccountInfo" | "migration" | "migrationFile";
+        modelProps: "user" | "account" | "session" | "verification" | "adapter" | "adapterAccountInfo" | "migration" | "migrationSelection" | "migrationFile";
         txIsolationLevel: TransactionIsolationLevel;
     };
     model: {
@@ -773,6 +774,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
                 };
             };
         };
+        MigrationSelection: {
+            payload: Prisma.$MigrationSelectionPayload<ExtArgs>;
+            fields: Prisma.MigrationSelectionFieldRefs;
+            operations: {
+                findUnique: {
+                    args: Prisma.MigrationSelectionFindUniqueArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload> | null;
+                };
+                findUniqueOrThrow: {
+                    args: Prisma.MigrationSelectionFindUniqueOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>;
+                };
+                findFirst: {
+                    args: Prisma.MigrationSelectionFindFirstArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload> | null;
+                };
+                findFirstOrThrow: {
+                    args: Prisma.MigrationSelectionFindFirstOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>;
+                };
+                findMany: {
+                    args: Prisma.MigrationSelectionFindManyArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>[];
+                };
+                create: {
+                    args: Prisma.MigrationSelectionCreateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>;
+                };
+                createMany: {
+                    args: Prisma.MigrationSelectionCreateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                createManyAndReturn: {
+                    args: Prisma.MigrationSelectionCreateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>[];
+                };
+                delete: {
+                    args: Prisma.MigrationSelectionDeleteArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>;
+                };
+                update: {
+                    args: Prisma.MigrationSelectionUpdateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>;
+                };
+                deleteMany: {
+                    args: Prisma.MigrationSelectionDeleteManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateMany: {
+                    args: Prisma.MigrationSelectionUpdateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateManyAndReturn: {
+                    args: Prisma.MigrationSelectionUpdateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>[];
+                };
+                upsert: {
+                    args: Prisma.MigrationSelectionUpsertArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$MigrationSelectionPayload>;
+                };
+                aggregate: {
+                    args: Prisma.MigrationSelectionAggregateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.AggregateMigrationSelection>;
+                };
+                groupBy: {
+                    args: Prisma.MigrationSelectionGroupByArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.MigrationSelectionGroupByOutputType>[];
+                };
+                count: {
+                    args: Prisma.MigrationSelectionCountArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.MigrationSelectionCountAggregateOutputType> | number;
+                };
+            };
+        };
         MigrationFile: {
             payload: Prisma.$MigrationFilePayload<ExtArgs>;
             fields: Prisma.MigrationFileFieldRefs;
@@ -957,16 +1032,32 @@ export declare const MigrationScalarFieldEnum: {
     readonly status: "status";
     readonly sourceAdapterId: "sourceAdapterId";
     readonly destinationAdapterId: "destinationAdapterId";
+    readonly totalFiles: "totalFiles";
+    readonly completedFiles: "completedFiles";
+    readonly failedFiles: "failedFiles";
+    readonly userId: "userId";
     readonly createdAt: "createdAt";
     readonly updatedAt: "updatedAt";
-    readonly userId: "userId";
 };
 export type MigrationScalarFieldEnum = (typeof MigrationScalarFieldEnum)[keyof typeof MigrationScalarFieldEnum];
+export declare const MigrationSelectionScalarFieldEnum: {
+    readonly id: "id";
+    readonly sourceId: "sourceId";
+    readonly name: "name";
+    readonly type: "type";
+    readonly mimeType: "mimeType";
+    readonly size: "size";
+    readonly path: "path";
+    readonly migrationId: "migrationId";
+};
+export type MigrationSelectionScalarFieldEnum = (typeof MigrationSelectionScalarFieldEnum)[keyof typeof MigrationSelectionScalarFieldEnum];
 export declare const MigrationFileScalarFieldEnum: {
     readonly id: "id";
-    readonly fileId: "fileId";
-    readonly source: "source";
-    readonly destination: "destination";
+    readonly sourceFileId: "sourceFileId";
+    readonly size: "size";
+    readonly mimeType: "mimeType";
+    readonly path: "path";
+    readonly name: "name";
     readonly status: "status";
     readonly migrationId: "migrationId";
 };
@@ -1033,6 +1124,30 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
  * Reference to a field of type 'Int[]'
  */
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>;
+/**
+ * Reference to a field of type 'MigrationSelectionType'
+ */
+export type EnumMigrationSelectionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MigrationSelectionType'>;
+/**
+ * Reference to a field of type 'MigrationSelectionType[]'
+ */
+export type ListEnumMigrationSelectionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MigrationSelectionType[]'>;
+/**
+ * Reference to a field of type 'MigrationFileStatus'
+ */
+export type EnumMigrationFileStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MigrationFileStatus'>;
+/**
+ * Reference to a field of type 'MigrationFileStatus[]'
+ */
+export type ListEnumMigrationFileStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MigrationFileStatus[]'>;
+/**
+ * Reference to a field of type 'Float'
+ */
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>;
+/**
+ * Reference to a field of type 'Float[]'
+ */
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>;
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -1134,6 +1249,7 @@ export type GlobalOmitConfig = {
     adapter?: Prisma.AdapterOmit;
     adapterAccountInfo?: Prisma.AdapterAccountInfoOmit;
     migration?: Prisma.MigrationOmit;
+    migrationSelection?: Prisma.MigrationSelectionOmit;
     migrationFile?: Prisma.MigrationFileOmit;
 };
 export type LogLevel = 'info' | 'query' | 'warn' | 'error';

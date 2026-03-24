@@ -1,54 +1,116 @@
 import type {
   GoogleDriveFile,
-  GoogleDriveFolderCreationParams,
   GoogleDriveFolderCreationResponse,
   StorageAdapter,
+  GoogleDriveDownloadRequest,
+  GoogleDriveUploadRequest,
+  GoogleDriveCreateFolderRequest,
+  GoogleDriveListFilesRequest,
 } from '../types';
+import { retryWithBackoff } from '../utils/function';
 
-export class GoogleDrive implements StorageAdapter {
+type TUploadFileParams = GoogleDriveUploadRequest;
+
+type TDownloadParams = GoogleDriveDownloadRequest;
+
+type TCreateFolderParams = GoogleDriveCreateFolderRequest;
+
+type TListFileParams = GoogleDriveListFilesRequest;
+
+export class GoogleDrive implements StorageAdapter<
+  TDownloadParams,
+  TUploadFileParams,
+  TCreateFolderParams,
+  TListFileParams
+> {
   baseUrl: string;
+  adapterType: 'GOOGLE_DRIVE' = 'GOOGLE_DRIVE';
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
-  async downloadFile(
-    mimeType: string,
-    fileId: string,
+  buildDownloadRequest(
+    file: { sourceId: string; mimeType?: string | null },
     accessToken: string,
-    exportMimeType: string | null = null,
-  ): Promise<ReadableStream | null> {
-    let url = '';
+  ): GoogleDriveDownloadRequest {
+    return {
+      fileId: file.sourceId,
+      mimeType: file.mimeType || 'application/octet-stream',
+      accessToken,
+    };
+  }
 
-    if (mimeType.startsWith('application/vnd.google-apps')) {
-      url = `${this.baseUrl}/${fileId}/export?mimeType=${exportMimeType || 'application/pdf'}`;
+  buildUploadRequest(
+    destinationPath: string,
+    stream: ReadableStream | NodeJS.ReadableStream,
+    accessToken: string,
+  ): GoogleDriveUploadRequest {
+    return {
+      pathname: destinationPath,
+      stream,
+      accessToken,
+    };
+  }
+
+  async downloadFile(
+    paramsOrMimeType: TDownloadParams | string,
+    fileId?: string,
+    accessToken?: string,
+    exportMimeType?: string | null,
+  ): Promise<ReadableStream | NodeJS.ReadableStream | null> {
+    let params: GoogleDriveDownloadRequest;
+
+    if (typeof paramsOrMimeType === 'string' && fileId && accessToken) {
+      params = {
+        mimeType: paramsOrMimeType,
+        fileId,
+        accessToken,
+        exportMimeType: exportMimeType ?? null,
+      };
     } else {
-      url = `${this.baseUrl}/${fileId}?alt=media`;
+      params = paramsOrMimeType as GoogleDriveDownloadRequest;
     }
 
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    const { accessToken: token, fileId: id, mimeType, exportMimeType: exportType } = params;
 
-    if (!res.ok) throw new Error('Drive download failed');
+    const fetchFn = async () => {
+      const url = mimeType?.startsWith('application/vnd.google-apps')
+        ? `${this.baseUrl}/${id}/export?mimeType=${exportType || 'application/pdf'}`
+        : `${this.baseUrl}/${id}?alt=media`;
 
-    return res.body;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        if (res.status === 429) {
+          throw new Error(`Rate limit hit: ${res.status} ${text}`);
+        }
+        throw new Error(`Drive download failed: ${res.status} ${text}`);
+      }
+
+      return res.body;
+    };
+
+    return retryWithBackoff(fetchFn, 4, 500);
   }
 
-  async uploadFile(): Promise<any> {
-    throw new Error('Not implemented for Google Drive');
+  async uploadFile(params: TUploadFileParams): Promise<any> {
+    const { accessToken, pathname, stream } = params;
+    // Google Drive multipart upload not implemented yet; use an API wrapper when available.
+    throw new Error('Google Drive upload is not implemented');
   }
 
-  async createFolder({
-    accessToken,
-    folderName,
-    parentId,
-  }: GoogleDriveFolderCreationParams): Promise<{ id: string } | null> {
-    try {
+  async createFolder(params: TCreateFolderParams) {
+    const { accessToken, folderName, parentId } = params;
+
+    const createFn = async () => {
       const response = await fetch(process.env.GOOGLE_DRIVE_BASE_URL!, {
-        method: "POST",
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
@@ -60,42 +122,40 @@ export class GoogleDrive implements StorageAdapter {
         }),
       });
 
-      const result = (await response.json()) as GoogleDriveFolderCreationResponse;
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
 
-      return {
-        id: result.id,
-      };
-    } catch (error: any) {
-      console.error('Error:', error);
-      return null;
-    }
+      const result = (await response.json()) as GoogleDriveFolderCreationResponse;
+      return { id: result.id };
+    };
+
+    return retryWithBackoff(createFn, 3, 400);
   }
 
-  async listFiles(args: {
-    parentSource: string;
-    parentPath: string | null;
-    access_token: string;
-  }): Promise<any> {
-    const { access_token, parentPath, parentSource } = args;
-    let files = [];
-
+  async listFiles(params: TListFileParams) {
+    const { access_token, parentPath, parentSource } = params;
+    let files: any[] = [];
     let pageToken: string | undefined;
 
     do {
-      const params = new URLSearchParams({
+      const query = new URLSearchParams({
         q: `'${parentSource}' in parents and trashed=false`,
         fields: 'nextPageToken,files(id,name,size,mimeType,parents)',
         supportsAllDrives: 'true',
         includeItemsFromAllDrives: 'true',
       });
 
-      if (pageToken) params.append('pageToken', pageToken);
+      if (pageToken) query.append('pageToken', pageToken);
 
-      const response = await fetch(`${process.env.GOOGLE_DRIVE_BASE_URL}?${params}`, {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      });
+      const response = await retryWithBackoff(
+        async () =>
+          await fetch(`${process.env.GOOGLE_DRIVE_BASE_URL}?${query}`, {
+            headers: { Authorization: `Bearer ${access_token}` },
+          }),
+        3,
+        400,
+      );
 
       if (!response.ok) {
         throw new Error(await response.text());

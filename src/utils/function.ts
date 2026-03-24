@@ -95,6 +95,36 @@ export async function rotateToken(adapter: Partial<Adapter>): Promise<{
   }
 }
 
+export async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  initialDelay = 400,
+  factor = 2,
+): Promise<T> {
+  let attempt = 0;
+  let delay = initialDelay;
+
+  while (true) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      attempt += 1;
+      if (attempt > retries) {
+        throw error;
+      }
+
+      const isRateLimit =
+        error?.message?.includes('429') || error?.message?.toLowerCase().includes('rate limit');
+      if (!isRateLimit && attempt > retries) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= factor;
+    }
+  }
+}
+
 /**
  * @description The purpose of this function to collect all the file from the folder
  * @param parentId For getting all the content of the folder

@@ -189,6 +189,17 @@ export interface PrismaClient<in LogOpts extends Prisma.LogLevel = never, in out
         omit: OmitOpts;
     }>;
     /**
+     * `prisma.migrationSelection`: Exposes CRUD operations for the **MigrationSelection** model.
+      * Example usage:
+      * ```ts
+      * // Fetch zero or more MigrationSelections
+      * const migrationSelections = await prisma.migrationSelection.findMany()
+      * ```
+      */
+    get migrationSelection(): Prisma.MigrationSelectionDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
+    /**
      * `prisma.migrationFile`: Exposes CRUD operations for the **MigrationFile** model.
       * Example usage:
       * ```ts

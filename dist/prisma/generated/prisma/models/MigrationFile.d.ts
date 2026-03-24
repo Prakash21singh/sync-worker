@@ -8,55 +8,81 @@ import type * as Prisma from "../internal/prismaNamespace";
 export type MigrationFileModel = runtime.Types.Result.DefaultSelection<Prisma.$MigrationFilePayload>;
 export type AggregateMigrationFile = {
     _count: MigrationFileCountAggregateOutputType | null;
+    _avg: MigrationFileAvgAggregateOutputType | null;
+    _sum: MigrationFileSumAggregateOutputType | null;
     _min: MigrationFileMinAggregateOutputType | null;
     _max: MigrationFileMaxAggregateOutputType | null;
 };
+export type MigrationFileAvgAggregateOutputType = {
+    size: number | null;
+};
+export type MigrationFileSumAggregateOutputType = {
+    size: number | null;
+};
 export type MigrationFileMinAggregateOutputType = {
     id: string | null;
-    fileId: string | null;
-    source: $Enums.AdapterName | null;
-    destination: $Enums.AdapterName | null;
-    status: $Enums.MigrationStatus | null;
+    sourceFileId: string | null;
+    size: number | null;
+    mimeType: string | null;
+    path: string | null;
+    name: string | null;
+    status: $Enums.MigrationFileStatus | null;
     migrationId: string | null;
 };
 export type MigrationFileMaxAggregateOutputType = {
     id: string | null;
-    fileId: string | null;
-    source: $Enums.AdapterName | null;
-    destination: $Enums.AdapterName | null;
-    status: $Enums.MigrationStatus | null;
+    sourceFileId: string | null;
+    size: number | null;
+    mimeType: string | null;
+    path: string | null;
+    name: string | null;
+    status: $Enums.MigrationFileStatus | null;
     migrationId: string | null;
 };
 export type MigrationFileCountAggregateOutputType = {
     id: number;
-    fileId: number;
-    source: number;
-    destination: number;
+    sourceFileId: number;
+    size: number;
+    mimeType: number;
+    path: number;
+    name: number;
     status: number;
     migrationId: number;
     _all: number;
 };
+export type MigrationFileAvgAggregateInputType = {
+    size?: true;
+};
+export type MigrationFileSumAggregateInputType = {
+    size?: true;
+};
 export type MigrationFileMinAggregateInputType = {
     id?: true;
-    fileId?: true;
-    source?: true;
-    destination?: true;
+    sourceFileId?: true;
+    size?: true;
+    mimeType?: true;
+    path?: true;
+    name?: true;
     status?: true;
     migrationId?: true;
 };
 export type MigrationFileMaxAggregateInputType = {
     id?: true;
-    fileId?: true;
-    source?: true;
-    destination?: true;
+    sourceFileId?: true;
+    size?: true;
+    mimeType?: true;
+    path?: true;
+    name?: true;
     status?: true;
     migrationId?: true;
 };
 export type MigrationFileCountAggregateInputType = {
     id?: true;
-    fileId?: true;
-    source?: true;
-    destination?: true;
+    sourceFileId?: true;
+    size?: true;
+    mimeType?: true;
+    path?: true;
+    name?: true;
     status?: true;
     migrationId?: true;
     _all?: true;
@@ -99,6 +125,18 @@ export type MigrationFileAggregateArgs<ExtArgs extends runtime.Types.Extensions.
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      *
+     * Select which fields to average
+    **/
+    _avg?: MigrationFileAvgAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to sum
+    **/
+    _sum?: MigrationFileSumAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
      * Select which fields to find the minimum value
     **/
     _min?: MigrationFileMinAggregateInputType;
@@ -120,17 +158,23 @@ export type MigrationFileGroupByArgs<ExtArgs extends runtime.Types.Extensions.In
     take?: number;
     skip?: number;
     _count?: MigrationFileCountAggregateInputType | true;
+    _avg?: MigrationFileAvgAggregateInputType;
+    _sum?: MigrationFileSumAggregateInputType;
     _min?: MigrationFileMinAggregateInputType;
     _max?: MigrationFileMaxAggregateInputType;
 };
 export type MigrationFileGroupByOutputType = {
     id: string;
-    fileId: string;
-    source: $Enums.AdapterName;
-    destination: $Enums.AdapterName;
-    status: $Enums.MigrationStatus;
+    sourceFileId: string;
+    size: number | null;
+    mimeType: string | null;
+    path: string;
+    name: string;
+    status: $Enums.MigrationFileStatus;
     migrationId: string;
     _count: MigrationFileCountAggregateOutputType | null;
+    _avg: MigrationFileAvgAggregateOutputType | null;
+    _sum: MigrationFileSumAggregateOutputType | null;
     _min: MigrationFileMinAggregateOutputType | null;
     _max: MigrationFileMaxAggregateOutputType | null;
 };
@@ -142,109 +186,136 @@ export type MigrationFileWhereInput = {
     OR?: Prisma.MigrationFileWhereInput[];
     NOT?: Prisma.MigrationFileWhereInput | Prisma.MigrationFileWhereInput[];
     id?: Prisma.StringFilter<"MigrationFile"> | string;
-    fileId?: Prisma.StringFilter<"MigrationFile"> | string;
-    source?: Prisma.EnumAdapterNameFilter<"MigrationFile"> | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFilter<"MigrationFile"> | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFilter<"MigrationFile"> | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFilter<"MigrationFile"> | string;
+    size?: Prisma.IntNullableFilter<"MigrationFile"> | number | null;
+    mimeType?: Prisma.StringNullableFilter<"MigrationFile"> | string | null;
+    path?: Prisma.StringFilter<"MigrationFile"> | string;
+    name?: Prisma.StringFilter<"MigrationFile"> | string;
+    status?: Prisma.EnumMigrationFileStatusFilter<"MigrationFile"> | $Enums.MigrationFileStatus;
     migrationId?: Prisma.StringFilter<"MigrationFile"> | string;
     migration?: Prisma.XOR<Prisma.MigrationScalarRelationFilter, Prisma.MigrationWhereInput>;
 };
 export type MigrationFileOrderByWithRelationInput = {
     id?: Prisma.SortOrder;
-    fileId?: Prisma.SortOrder;
-    source?: Prisma.SortOrder;
-    destination?: Prisma.SortOrder;
+    sourceFileId?: Prisma.SortOrder;
+    size?: Prisma.SortOrderInput | Prisma.SortOrder;
+    mimeType?: Prisma.SortOrderInput | Prisma.SortOrder;
+    path?: Prisma.SortOrder;
+    name?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     migrationId?: Prisma.SortOrder;
     migration?: Prisma.MigrationOrderByWithRelationInput;
 };
 export type MigrationFileWhereUniqueInput = Prisma.AtLeast<{
     id?: string;
+    migrationId_sourceFileId?: Prisma.MigrationFileMigrationIdSourceFileIdCompoundUniqueInput;
     AND?: Prisma.MigrationFileWhereInput | Prisma.MigrationFileWhereInput[];
     OR?: Prisma.MigrationFileWhereInput[];
     NOT?: Prisma.MigrationFileWhereInput | Prisma.MigrationFileWhereInput[];
-    fileId?: Prisma.StringFilter<"MigrationFile"> | string;
-    source?: Prisma.EnumAdapterNameFilter<"MigrationFile"> | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFilter<"MigrationFile"> | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFilter<"MigrationFile"> | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFilter<"MigrationFile"> | string;
+    size?: Prisma.IntNullableFilter<"MigrationFile"> | number | null;
+    mimeType?: Prisma.StringNullableFilter<"MigrationFile"> | string | null;
+    path?: Prisma.StringFilter<"MigrationFile"> | string;
+    name?: Prisma.StringFilter<"MigrationFile"> | string;
+    status?: Prisma.EnumMigrationFileStatusFilter<"MigrationFile"> | $Enums.MigrationFileStatus;
     migrationId?: Prisma.StringFilter<"MigrationFile"> | string;
     migration?: Prisma.XOR<Prisma.MigrationScalarRelationFilter, Prisma.MigrationWhereInput>;
-}, "id">;
+}, "id" | "migrationId_sourceFileId">;
 export type MigrationFileOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
-    fileId?: Prisma.SortOrder;
-    source?: Prisma.SortOrder;
-    destination?: Prisma.SortOrder;
+    sourceFileId?: Prisma.SortOrder;
+    size?: Prisma.SortOrderInput | Prisma.SortOrder;
+    mimeType?: Prisma.SortOrderInput | Prisma.SortOrder;
+    path?: Prisma.SortOrder;
+    name?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     migrationId?: Prisma.SortOrder;
     _count?: Prisma.MigrationFileCountOrderByAggregateInput;
+    _avg?: Prisma.MigrationFileAvgOrderByAggregateInput;
     _max?: Prisma.MigrationFileMaxOrderByAggregateInput;
     _min?: Prisma.MigrationFileMinOrderByAggregateInput;
+    _sum?: Prisma.MigrationFileSumOrderByAggregateInput;
 };
 export type MigrationFileScalarWhereWithAggregatesInput = {
     AND?: Prisma.MigrationFileScalarWhereWithAggregatesInput | Prisma.MigrationFileScalarWhereWithAggregatesInput[];
     OR?: Prisma.MigrationFileScalarWhereWithAggregatesInput[];
     NOT?: Prisma.MigrationFileScalarWhereWithAggregatesInput | Prisma.MigrationFileScalarWhereWithAggregatesInput[];
     id?: Prisma.StringWithAggregatesFilter<"MigrationFile"> | string;
-    fileId?: Prisma.StringWithAggregatesFilter<"MigrationFile"> | string;
-    source?: Prisma.EnumAdapterNameWithAggregatesFilter<"MigrationFile"> | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameWithAggregatesFilter<"MigrationFile"> | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusWithAggregatesFilter<"MigrationFile"> | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringWithAggregatesFilter<"MigrationFile"> | string;
+    size?: Prisma.IntNullableWithAggregatesFilter<"MigrationFile"> | number | null;
+    mimeType?: Prisma.StringNullableWithAggregatesFilter<"MigrationFile"> | string | null;
+    path?: Prisma.StringWithAggregatesFilter<"MigrationFile"> | string;
+    name?: Prisma.StringWithAggregatesFilter<"MigrationFile"> | string;
+    status?: Prisma.EnumMigrationFileStatusWithAggregatesFilter<"MigrationFile"> | $Enums.MigrationFileStatus;
     migrationId?: Prisma.StringWithAggregatesFilter<"MigrationFile"> | string;
 };
 export type MigrationFileCreateInput = {
     id?: string;
-    fileId: string;
-    source: $Enums.AdapterName;
-    destination: $Enums.AdapterName;
-    status: $Enums.MigrationStatus;
+    sourceFileId: string;
+    size?: number | null;
+    mimeType?: string | null;
+    path: string;
+    name: string;
+    status: $Enums.MigrationFileStatus;
     migration: Prisma.MigrationCreateNestedOneWithoutFilesInput;
 };
 export type MigrationFileUncheckedCreateInput = {
     id?: string;
-    fileId: string;
-    source: $Enums.AdapterName;
-    destination: $Enums.AdapterName;
-    status: $Enums.MigrationStatus;
+    sourceFileId: string;
+    size?: number | null;
+    mimeType?: string | null;
+    path: string;
+    name: string;
+    status: $Enums.MigrationFileStatus;
     migrationId: string;
 };
 export type MigrationFileUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    fileId?: Prisma.StringFieldUpdateOperationsInput | string;
-    source?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFieldUpdateOperationsInput | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string;
+    size?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    path?: Prisma.StringFieldUpdateOperationsInput | string;
+    name?: Prisma.StringFieldUpdateOperationsInput | string;
+    status?: Prisma.EnumMigrationFileStatusFieldUpdateOperationsInput | $Enums.MigrationFileStatus;
     migration?: Prisma.MigrationUpdateOneRequiredWithoutFilesNestedInput;
 };
 export type MigrationFileUncheckedUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    fileId?: Prisma.StringFieldUpdateOperationsInput | string;
-    source?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFieldUpdateOperationsInput | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string;
+    size?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    path?: Prisma.StringFieldUpdateOperationsInput | string;
+    name?: Prisma.StringFieldUpdateOperationsInput | string;
+    status?: Prisma.EnumMigrationFileStatusFieldUpdateOperationsInput | $Enums.MigrationFileStatus;
     migrationId?: Prisma.StringFieldUpdateOperationsInput | string;
 };
 export type MigrationFileCreateManyInput = {
     id?: string;
-    fileId: string;
-    source: $Enums.AdapterName;
-    destination: $Enums.AdapterName;
-    status: $Enums.MigrationStatus;
+    sourceFileId: string;
+    size?: number | null;
+    mimeType?: string | null;
+    path: string;
+    name: string;
+    status: $Enums.MigrationFileStatus;
     migrationId: string;
 };
 export type MigrationFileUpdateManyMutationInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    fileId?: Prisma.StringFieldUpdateOperationsInput | string;
-    source?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFieldUpdateOperationsInput | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string;
+    size?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    path?: Prisma.StringFieldUpdateOperationsInput | string;
+    name?: Prisma.StringFieldUpdateOperationsInput | string;
+    status?: Prisma.EnumMigrationFileStatusFieldUpdateOperationsInput | $Enums.MigrationFileStatus;
 };
 export type MigrationFileUncheckedUpdateManyInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    fileId?: Prisma.StringFieldUpdateOperationsInput | string;
-    source?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFieldUpdateOperationsInput | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string;
+    size?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    path?: Prisma.StringFieldUpdateOperationsInput | string;
+    name?: Prisma.StringFieldUpdateOperationsInput | string;
+    status?: Prisma.EnumMigrationFileStatusFieldUpdateOperationsInput | $Enums.MigrationFileStatus;
     migrationId?: Prisma.StringFieldUpdateOperationsInput | string;
 };
 export type MigrationFileListRelationFilter = {
@@ -255,29 +326,45 @@ export type MigrationFileListRelationFilter = {
 export type MigrationFileOrderByRelationAggregateInput = {
     _count?: Prisma.SortOrder;
 };
+export type MigrationFileMigrationIdSourceFileIdCompoundUniqueInput = {
+    migrationId: string;
+    sourceFileId: string;
+};
 export type MigrationFileCountOrderByAggregateInput = {
     id?: Prisma.SortOrder;
-    fileId?: Prisma.SortOrder;
-    source?: Prisma.SortOrder;
-    destination?: Prisma.SortOrder;
+    sourceFileId?: Prisma.SortOrder;
+    size?: Prisma.SortOrder;
+    mimeType?: Prisma.SortOrder;
+    path?: Prisma.SortOrder;
+    name?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     migrationId?: Prisma.SortOrder;
 };
+export type MigrationFileAvgOrderByAggregateInput = {
+    size?: Prisma.SortOrder;
+};
 export type MigrationFileMaxOrderByAggregateInput = {
     id?: Prisma.SortOrder;
-    fileId?: Prisma.SortOrder;
-    source?: Prisma.SortOrder;
-    destination?: Prisma.SortOrder;
+    sourceFileId?: Prisma.SortOrder;
+    size?: Prisma.SortOrder;
+    mimeType?: Prisma.SortOrder;
+    path?: Prisma.SortOrder;
+    name?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     migrationId?: Prisma.SortOrder;
 };
 export type MigrationFileMinOrderByAggregateInput = {
     id?: Prisma.SortOrder;
-    fileId?: Prisma.SortOrder;
-    source?: Prisma.SortOrder;
-    destination?: Prisma.SortOrder;
+    sourceFileId?: Prisma.SortOrder;
+    size?: Prisma.SortOrder;
+    mimeType?: Prisma.SortOrder;
+    path?: Prisma.SortOrder;
+    name?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     migrationId?: Prisma.SortOrder;
+};
+export type MigrationFileSumOrderByAggregateInput = {
+    size?: Prisma.SortOrder;
 };
 export type MigrationFileCreateNestedManyWithoutMigrationInput = {
     create?: Prisma.XOR<Prisma.MigrationFileCreateWithoutMigrationInput, Prisma.MigrationFileUncheckedCreateWithoutMigrationInput> | Prisma.MigrationFileCreateWithoutMigrationInput[] | Prisma.MigrationFileUncheckedCreateWithoutMigrationInput[];
@@ -317,19 +404,33 @@ export type MigrationFileUncheckedUpdateManyWithoutMigrationNestedInput = {
     updateMany?: Prisma.MigrationFileUpdateManyWithWhereWithoutMigrationInput | Prisma.MigrationFileUpdateManyWithWhereWithoutMigrationInput[];
     deleteMany?: Prisma.MigrationFileScalarWhereInput | Prisma.MigrationFileScalarWhereInput[];
 };
+export type NullableIntFieldUpdateOperationsInput = {
+    set?: number | null;
+    increment?: number;
+    decrement?: number;
+    multiply?: number;
+    divide?: number;
+};
+export type EnumMigrationFileStatusFieldUpdateOperationsInput = {
+    set?: $Enums.MigrationFileStatus;
+};
 export type MigrationFileCreateWithoutMigrationInput = {
     id?: string;
-    fileId: string;
-    source: $Enums.AdapterName;
-    destination: $Enums.AdapterName;
-    status: $Enums.MigrationStatus;
+    sourceFileId: string;
+    size?: number | null;
+    mimeType?: string | null;
+    path: string;
+    name: string;
+    status: $Enums.MigrationFileStatus;
 };
 export type MigrationFileUncheckedCreateWithoutMigrationInput = {
     id?: string;
-    fileId: string;
-    source: $Enums.AdapterName;
-    destination: $Enums.AdapterName;
-    status: $Enums.MigrationStatus;
+    sourceFileId: string;
+    size?: number | null;
+    mimeType?: string | null;
+    path: string;
+    name: string;
+    status: $Enums.MigrationFileStatus;
 };
 export type MigrationFileCreateOrConnectWithoutMigrationInput = {
     where: Prisma.MigrationFileWhereUniqueInput;
@@ -357,76 +458,94 @@ export type MigrationFileScalarWhereInput = {
     OR?: Prisma.MigrationFileScalarWhereInput[];
     NOT?: Prisma.MigrationFileScalarWhereInput | Prisma.MigrationFileScalarWhereInput[];
     id?: Prisma.StringFilter<"MigrationFile"> | string;
-    fileId?: Prisma.StringFilter<"MigrationFile"> | string;
-    source?: Prisma.EnumAdapterNameFilter<"MigrationFile"> | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFilter<"MigrationFile"> | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFilter<"MigrationFile"> | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFilter<"MigrationFile"> | string;
+    size?: Prisma.IntNullableFilter<"MigrationFile"> | number | null;
+    mimeType?: Prisma.StringNullableFilter<"MigrationFile"> | string | null;
+    path?: Prisma.StringFilter<"MigrationFile"> | string;
+    name?: Prisma.StringFilter<"MigrationFile"> | string;
+    status?: Prisma.EnumMigrationFileStatusFilter<"MigrationFile"> | $Enums.MigrationFileStatus;
     migrationId?: Prisma.StringFilter<"MigrationFile"> | string;
 };
 export type MigrationFileCreateManyMigrationInput = {
     id?: string;
-    fileId: string;
-    source: $Enums.AdapterName;
-    destination: $Enums.AdapterName;
-    status: $Enums.MigrationStatus;
+    sourceFileId: string;
+    size?: number | null;
+    mimeType?: string | null;
+    path: string;
+    name: string;
+    status: $Enums.MigrationFileStatus;
 };
 export type MigrationFileUpdateWithoutMigrationInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    fileId?: Prisma.StringFieldUpdateOperationsInput | string;
-    source?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFieldUpdateOperationsInput | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string;
+    size?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    path?: Prisma.StringFieldUpdateOperationsInput | string;
+    name?: Prisma.StringFieldUpdateOperationsInput | string;
+    status?: Prisma.EnumMigrationFileStatusFieldUpdateOperationsInput | $Enums.MigrationFileStatus;
 };
 export type MigrationFileUncheckedUpdateWithoutMigrationInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    fileId?: Prisma.StringFieldUpdateOperationsInput | string;
-    source?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFieldUpdateOperationsInput | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string;
+    size?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    path?: Prisma.StringFieldUpdateOperationsInput | string;
+    name?: Prisma.StringFieldUpdateOperationsInput | string;
+    status?: Prisma.EnumMigrationFileStatusFieldUpdateOperationsInput | $Enums.MigrationFileStatus;
 };
 export type MigrationFileUncheckedUpdateManyWithoutMigrationInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    fileId?: Prisma.StringFieldUpdateOperationsInput | string;
-    source?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    destination?: Prisma.EnumAdapterNameFieldUpdateOperationsInput | $Enums.AdapterName;
-    status?: Prisma.EnumMigrationStatusFieldUpdateOperationsInput | $Enums.MigrationStatus;
+    sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string;
+    size?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    path?: Prisma.StringFieldUpdateOperationsInput | string;
+    name?: Prisma.StringFieldUpdateOperationsInput | string;
+    status?: Prisma.EnumMigrationFileStatusFieldUpdateOperationsInput | $Enums.MigrationFileStatus;
 };
 export type MigrationFileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
-    fileId?: boolean;
-    source?: boolean;
-    destination?: boolean;
+    sourceFileId?: boolean;
+    size?: boolean;
+    mimeType?: boolean;
+    path?: boolean;
+    name?: boolean;
     status?: boolean;
     migrationId?: boolean;
     migration?: boolean | Prisma.MigrationDefaultArgs<ExtArgs>;
 }, ExtArgs["result"]["migrationFile"]>;
 export type MigrationFileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
-    fileId?: boolean;
-    source?: boolean;
-    destination?: boolean;
+    sourceFileId?: boolean;
+    size?: boolean;
+    mimeType?: boolean;
+    path?: boolean;
+    name?: boolean;
     status?: boolean;
     migrationId?: boolean;
     migration?: boolean | Prisma.MigrationDefaultArgs<ExtArgs>;
 }, ExtArgs["result"]["migrationFile"]>;
 export type MigrationFileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
-    fileId?: boolean;
-    source?: boolean;
-    destination?: boolean;
+    sourceFileId?: boolean;
+    size?: boolean;
+    mimeType?: boolean;
+    path?: boolean;
+    name?: boolean;
     status?: boolean;
     migrationId?: boolean;
     migration?: boolean | Prisma.MigrationDefaultArgs<ExtArgs>;
 }, ExtArgs["result"]["migrationFile"]>;
 export type MigrationFileSelectScalar = {
     id?: boolean;
-    fileId?: boolean;
-    source?: boolean;
-    destination?: boolean;
+    sourceFileId?: boolean;
+    size?: boolean;
+    mimeType?: boolean;
+    path?: boolean;
+    name?: boolean;
     status?: boolean;
     migrationId?: boolean;
 };
-export type MigrationFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fileId" | "source" | "destination" | "status" | "migrationId", ExtArgs["result"]["migrationFile"]>;
+export type MigrationFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sourceFileId" | "size" | "mimeType" | "path" | "name" | "status" | "migrationId", ExtArgs["result"]["migrationFile"]>;
 export type MigrationFileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     migration?: boolean | Prisma.MigrationDefaultArgs<ExtArgs>;
 };
@@ -443,10 +562,12 @@ export type $MigrationFilePayload<ExtArgs extends runtime.Types.Extensions.Inter
     };
     scalars: runtime.Types.Extensions.GetPayloadResult<{
         id: string;
-        fileId: string;
-        source: $Enums.AdapterName;
-        destination: $Enums.AdapterName;
-        status: $Enums.MigrationStatus;
+        sourceFileId: string;
+        size: number | null;
+        mimeType: string | null;
+        path: string;
+        name: string;
+        status: $Enums.MigrationFileStatus;
         migrationId: string;
     }, ExtArgs["result"]["migrationFile"]>;
     composites: {};
@@ -804,10 +925,12 @@ export interface Prisma__MigrationFileClient<T, Null = never, ExtArgs extends ru
  */
 export interface MigrationFileFieldRefs {
     readonly id: Prisma.FieldRef<"MigrationFile", 'String'>;
-    readonly fileId: Prisma.FieldRef<"MigrationFile", 'String'>;
-    readonly source: Prisma.FieldRef<"MigrationFile", 'AdapterName'>;
-    readonly destination: Prisma.FieldRef<"MigrationFile", 'AdapterName'>;
-    readonly status: Prisma.FieldRef<"MigrationFile", 'MigrationStatus'>;
+    readonly sourceFileId: Prisma.FieldRef<"MigrationFile", 'String'>;
+    readonly size: Prisma.FieldRef<"MigrationFile", 'Int'>;
+    readonly mimeType: Prisma.FieldRef<"MigrationFile", 'String'>;
+    readonly path: Prisma.FieldRef<"MigrationFile", 'String'>;
+    readonly name: Prisma.FieldRef<"MigrationFile", 'String'>;
+    readonly status: Prisma.FieldRef<"MigrationFile", 'MigrationFileStatus'>;
     readonly migrationId: Prisma.FieldRef<"MigrationFile", 'String'>;
 }
 /**

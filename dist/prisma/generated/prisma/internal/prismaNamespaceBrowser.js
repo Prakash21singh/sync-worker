@@ -46,6 +46,7 @@ export const ModelName = {
     Adapter: 'Adapter',
     AdapterAccountInfo: 'AdapterAccountInfo',
     Migration: 'Migration',
+    MigrationSelection: 'MigrationSelection',
     MigrationFile: 'MigrationFile'
 };
 /*
@@ -127,15 +128,30 @@ export const MigrationScalarFieldEnum = {
     status: 'status',
     sourceAdapterId: 'sourceAdapterId',
     destinationAdapterId: 'destinationAdapterId',
+    totalFiles: 'totalFiles',
+    completedFiles: 'completedFiles',
+    failedFiles: 'failedFiles',
+    userId: 'userId',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt',
-    userId: 'userId'
+    updatedAt: 'updatedAt'
+};
+export const MigrationSelectionScalarFieldEnum = {
+    id: 'id',
+    sourceId: 'sourceId',
+    name: 'name',
+    type: 'type',
+    mimeType: 'mimeType',
+    size: 'size',
+    path: 'path',
+    migrationId: 'migrationId'
 };
 export const MigrationFileScalarFieldEnum = {
     id: 'id',
-    fileId: 'fileId',
-    source: 'source',
-    destination: 'destination',
+    sourceFileId: 'sourceFileId',
+    size: 'size',
+    mimeType: 'mimeType',
+    path: 'path',
+    name: 'name',
     status: 'status',
     migrationId: 'migrationId'
 };

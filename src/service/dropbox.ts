@@ -1,19 +1,16 @@
-import type { MigrationSelection } from '../../prisma/generated/prisma/client';
-import type { DropboxFolderCreationParams, StorageAdapter } from '../types';
+import type {
+  StorageAdapter,
+  DropboxDownloadRequest,
+  DropboxUploadRequest,
+  DropboxCreateFolderRequest,
+  DropboxListFilesRequest,
+} from '../types';
+import { retryWithBackoff } from '../utils/function';
 
-type BodyInit = Blob | FormData | URLSearchParams | ReadableStream<Uint8Array> | string;
-
-type DropboxUploadResponse = {
-  name: string;
-  path_lower: string;
-  path_display: string;
-  id: string;
-  size: number;
-};
-
-type DropboxCreateFolderResponse = {
-  id: string;
-};
+type TUploadFileParams = DropboxUploadRequest;
+type TDownloadParams = DropboxDownloadRequest;
+type TCreateFolderParams = DropboxCreateFolderRequest;
+type TListFileParams = DropboxListFilesRequest;
 
 type DropboxFolderEntry = {
   ['.tag']: 'file' | 'folder';
@@ -23,83 +20,105 @@ type DropboxFolderEntry = {
   size: number;
 };
 
-export class Dropbox implements StorageAdapter {
+export class Dropbox implements StorageAdapter<
+  TDownloadParams,
+  TUploadFileParams,
+  TCreateFolderParams,
+  TListFileParams
+> {
   baseUrl: string;
+  adapterType: 'DROPBOX' = 'DROPBOX';
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
-  /**
-   * Upload file to Dropbox
-   * @param stream file stream coming from source
-   * @param pathname "/filename.ext" OR "/folder/filename.ext"
-   * @param accessToken dropbox access token
-   */
-  async uploadFile(
+  buildDownloadRequest(file: { sourceId: string }, accessToken: string): DropboxDownloadRequest {
+    return {
+      path: file.sourceId,
+      accessToken,
+    };
+  }
+
+  buildUploadRequest(
+    destinationPath: string,
     stream: ReadableStream | NodeJS.ReadableStream,
-    pathname: string,
     accessToken: string,
-  ): Promise<DropboxUploadResponse> {
-    try {
+  ): DropboxUploadRequest {
+    return {
+      pathname: destinationPath,
+      stream,
+      accessToken,
+    };
+  }
+
+  async uploadFile(
+    paramsOrStream: TUploadFileParams | ReadableStream | NodeJS.ReadableStream,
+    pathname?: string,
+    accessToken?: string,
+  ): Promise<any> {
+    let params: DropboxUploadRequest;
+
+    if (typeof paramsOrStream !== 'object' || !('pathname' in (paramsOrStream as any))) {
+      params = {
+        stream: paramsOrStream as ReadableStream | NodeJS.ReadableStream,
+        pathname: pathname!,
+        accessToken: accessToken!,
+      };
+    } else {
+      params = paramsOrStream as DropboxUploadRequest;
+    }
+
+    const doUpload = async () => {
       const response = await fetch(`${this.baseUrl}/upload`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${params.accessToken}`,
           'Content-Type': 'application/octet-stream',
           'Dropbox-API-Arg': JSON.stringify({
-            path: pathname,
+            path: params.pathname,
             mode: 'add',
             autorename: true,
             mute: false,
             strict_conflict: false,
           }),
         },
-        body: stream as any,
+        body: params.stream as any,
         duplex: 'half',
       });
 
       if (!response.ok) {
+        const text = await response.text();
+        if (response.status === 429) {
+          throw new Error(`Dropbox rate limit: ${response.status} ${text}`);
+        }
         throw new Error(
-          `Failed to upload to Dropbox: ${response.status} ${response.statusText} for pathname: ${pathname} : ${await response.text()}`,
+          `Failed to upload to Dropbox: ${response.status} ${response.statusText} ${text}`,
         );
       }
 
-      const result = (await response.json()) as DropboxUploadResponse;
-      return result;
-    } catch (error: unknown) {
-      console.error('Dropbox upload error:', error);
+      return await response.json();
+    };
 
-      if (error instanceof Error) {
-        throw error;
-      }
-
-      throw new Error('Unknown Dropbox upload error');
-    }
+    return retryWithBackoff(doUpload, 4, 400);
   }
 
-  /**
-   * Create a folder in Dropbox
-   */
-  async createFolder({
-    accessToken,
-    parentPath,
-  }: DropboxFolderCreationParams): Promise<DropboxCreateFolderResponse> {
+  async createFolder(params: TCreateFolderParams) {
     const endpoint = process.env.DROPBOX_BASE_FOLDER_API;
 
     if (!endpoint) {
       throw new Error('DROPBOX_BASE_API env variable not set');
     }
 
-    try {
+    const createFn = async () => {
       const response = await fetch(`${endpoint}/create_folder_v2`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${params.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          path: `/${parentPath}`,
+          path: `/${params.parentPath}`,
           autorename: true,
         }),
       });
@@ -109,63 +128,76 @@ export class Dropbox implements StorageAdapter {
       }
 
       const result = (await response.json()) as {
-        metadata: {
-          id: string;
-        };
+        metadata: { id: string };
       };
 
-      return {
-        id: result.metadata.id,
-      };
-    } catch (error: unknown) {
-      console.error('Dropbox folder creation error:', error);
+      return { id: result.metadata.id };
+    };
 
-      if (error instanceof Error) {
-        throw error;
-      }
-
-      throw new Error('Unknown Dropbox folder creation error');
-    }
+    return retryWithBackoff(createFn, 3, 400);
   }
 
   async downloadFile(
-    mimeType: string,
-    fileId: string,
-    accessToken: string,
-  ): Promise<ReadableStream | null> {
-    throw new Error('Download file not implemented');
+    params: TDownloadParams,
+  ): Promise<ReadableStream | NodeJS.ReadableStream | null> {
+    const doDownload = async () => {
+      const response = await fetch(process.env.DROPBOX_FILE_DOWNLOAD_URL!, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${params.accessToken}`,
+          'Dropbox-Api-Arg': JSON.stringify({ path: params.path }),
+        },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        if (response.status === 429) {
+          throw new Error(`Dropbox rate limit: ${response.status} ${text}`);
+        }
+        throw new Error(`Dropbox download failed: ${response.status} ${text}`);
+      }
+
+      return response.body;
+    };
+
+    try {
+      return await retryWithBackoff(doDownload, 4, 500);
+    } catch (error: any) {
+      console.error('Dropbox download error:', error);
+      return null;
+    }
   }
 
-  /**
-   * @description List files used to list all the files in the parent folder and return the formatted data.
-   * ```
-   * parentSource : "parentId" | "parentPath"
-   * // Dropbox works with path
-   * // Google workds with parent id
-   * // That's why we're keeping a single source of truth
-   */
-  async listFiles(args: { parentSource: string; access_token: string }) {
+  async listFiles(args: TListFileParams) {
     const { parentSource, access_token } = args;
-    let files = [];
+    let files: any[] = [];
 
-    const response = await fetch(`${process.env.DROPBOX_BASE_FOLDER_API}/list_folder`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        include_deleted: false,
-        include_has_explicit_shared_members: false,
-        include_media_info: true,
-        include_mounted_folders: true,
-        include_non_downloadable_files: true,
-        path: `${parentSource.startsWith('/') ? parentSource : `/${parentSource}`}` || '',
-        recursive: false,
-      }),
-    });
+    const doList = async () => {
+      const response = await fetch(`${process.env.DROPBOX_BASE_FOLDER_API}/list_folder`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          include_deleted: false,
+          include_has_explicit_shared_members: false,
+          include_media_info: true,
+          include_mounted_folders: true,
+          include_non_downloadable_files: true,
+          path: `${parentSource.startsWith('/') ? parentSource : `/${parentSource}`}` || '',
+          recursive: false,
+        }),
+      });
 
-    const result = (await response.json()) as {
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      return await response.json();
+    };
+
+    const result = (await retryWithBackoff(doList, 3, 400)) as {
       entries: any[];
       cursor: string;
       has_more: boolean;
@@ -185,22 +217,30 @@ export class Dropbox implements StorageAdapter {
     let hasMore = result.has_more;
 
     while (hasMore) {
-      const res = await fetch(`${process.env.DROPBOX_BASE_FOLDER_API}/list_folder/continue`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cursor }),
-      });
+      const continueFn = async () => {
+        const res = await fetch(`${process.env.DROPBOX_BASE_FOLDER_API}/list_folder/continue`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ cursor }),
+        });
 
-      const data = (await res.json()) as {
-        entries: any[];
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+
+        return await res.json();
+      };
+
+      const data = (await retryWithBackoff(continueFn, 3, 400)) as {
+        entries: DropboxFolderEntry[];
         cursor: string;
         has_more: boolean;
       };
 
-      const mapped = data.entries.map((entry: DropboxFolderEntry) => ({
+      const mappedPage = data.entries.map((entry: DropboxFolderEntry) => ({
         name: entry.name,
         sourceId: entry.id,
         path: entry.path_display,
@@ -208,7 +248,7 @@ export class Dropbox implements StorageAdapter {
         type: entry['.tag'] === 'file' ? 'FILE' : 'FOLDER',
       }));
 
-      files.push(...mapped);
+      files.push(...mappedPage);
 
       cursor = data.cursor;
       hasMore = data.has_more;

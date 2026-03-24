@@ -33,6 +33,7 @@ export declare const ModelName: {
     readonly Adapter: "Adapter";
     readonly AdapterAccountInfo: "AdapterAccountInfo";
     readonly Migration: "Migration";
+    readonly MigrationSelection: "MigrationSelection";
     readonly MigrationFile: "MigrationFile";
 };
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
@@ -119,16 +120,32 @@ export declare const MigrationScalarFieldEnum: {
     readonly status: "status";
     readonly sourceAdapterId: "sourceAdapterId";
     readonly destinationAdapterId: "destinationAdapterId";
+    readonly totalFiles: "totalFiles";
+    readonly completedFiles: "completedFiles";
+    readonly failedFiles: "failedFiles";
+    readonly userId: "userId";
     readonly createdAt: "createdAt";
     readonly updatedAt: "updatedAt";
-    readonly userId: "userId";
 };
 export type MigrationScalarFieldEnum = (typeof MigrationScalarFieldEnum)[keyof typeof MigrationScalarFieldEnum];
+export declare const MigrationSelectionScalarFieldEnum: {
+    readonly id: "id";
+    readonly sourceId: "sourceId";
+    readonly name: "name";
+    readonly type: "type";
+    readonly mimeType: "mimeType";
+    readonly size: "size";
+    readonly path: "path";
+    readonly migrationId: "migrationId";
+};
+export type MigrationSelectionScalarFieldEnum = (typeof MigrationSelectionScalarFieldEnum)[keyof typeof MigrationSelectionScalarFieldEnum];
 export declare const MigrationFileScalarFieldEnum: {
     readonly id: "id";
-    readonly fileId: "fileId";
-    readonly source: "source";
-    readonly destination: "destination";
+    readonly sourceFileId: "sourceFileId";
+    readonly size: "size";
+    readonly mimeType: "mimeType";
+    readonly path: "path";
+    readonly name: "name";
     readonly status: "status";
     readonly migrationId: "migrationId";
 };
