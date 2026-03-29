@@ -1,7 +1,13 @@
 import { prisma } from '../lib/prisma';
 import type { AdpaterUpdate } from '../types';
 
-export const findAdapter = async ({ userId, id }: { userId: string; id: string }) => {
+export const findAdapter = async ({
+  userId,
+  id,
+}: {
+  userId: string;
+  id: string;
+}) => {
   return await prisma.adapter.findUnique({
     where: {
       id,
@@ -10,7 +16,13 @@ export const findAdapter = async ({ userId, id }: { userId: string; id: string }
   });
 };
 
-export const updateAdapter = async ({ id, data }: { id: string; data: AdpaterUpdate }) => {
+export const updateAdapter = async ({
+  id,
+  data,
+}: {
+  id: string;
+  data: AdpaterUpdate;
+}) => {
   await prisma.adapter.update({
     where: {
       id,

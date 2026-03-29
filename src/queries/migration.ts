@@ -16,7 +16,11 @@ export const findMigration = async ({
   });
 };
 
-export const findMigrationSelections = async ({ migrationId }: { migrationId: string }) => {
+export const findMigrationSelections = async ({
+  migrationId,
+}: {
+  migrationId: string;
+}) => {
   return await prisma.migrationSelection.findMany({
     where: {
       migrationId,
@@ -24,7 +28,10 @@ export const findMigrationSelections = async ({ migrationId }: { migrationId: st
   });
 };
 
-export const updateMigration = async (id: string, data: Record<string, any>) => {
+export const updateMigration = async (
+  id: string,
+  data: Record<string, any>,
+) => {
   return await prisma.migration.update({
     where: {
       id,
@@ -47,7 +54,10 @@ export const findMigrationFiles = async (migrationId: string) => {
   });
 };
 
-export const updateMigrationFile = async (id: string, status: MigrationFileStatus) => {
+export const updateMigrationFile = async (
+  id: string,
+  status: MigrationFileStatus,
+) => {
   return await prisma.migrationFile.update({
     where: {
       id,

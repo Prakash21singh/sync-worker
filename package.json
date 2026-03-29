@@ -8,8 +8,7 @@
     "dev:discovery": "tsx src/discovery-worker.ts",
     "build": "tsc",
     "start:worker": "node dist/worker.js",
-    "format": "biome format . --write",
-    "lint": "biome check ./**"
+    "format": "prettier --write ."
   },
   "type": "module",
   "keywords": [],
@@ -18,7 +17,7 @@
   "devDependencies": {
     "@types/node": "^25.3.2",
     "@types/pg": "^8.16.0",
-    "biome": "^0.3.3",
+    "prettier": "^3.8.1",
     "prisma": "^7.4.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

@@ -1,4 +1,7 @@
-import type { Adapter, MigrationFile } from '../../prisma/generated/prisma/client';
+import type {
+  Adapter,
+  MigrationFile,
+} from '../../prisma/generated/prisma/client';
 import { AdapterFactory } from '../service/adapter-factory';
 
 /**
@@ -40,7 +43,9 @@ export async function rotateToken(adapter: Partial<Adapter>): Promise<{
 
         if (!res.ok) {
           const errorText = await res.text(); // Dropbox usually sends useful error
-          throw new Error(`Dropbox token refresh failed: ${res.status} ${errorText}`);
+          throw new Error(
+            `Dropbox token refresh failed: ${res.status} ${errorText}`,
+          );
         }
 
         const data = (await res.json()) as any;
@@ -73,7 +78,9 @@ export async function rotateToken(adapter: Partial<Adapter>): Promise<{
 
         if (!res.ok) {
           const errorText = await res.text(); // Dropbox usually sends useful error
-          throw new Error(`Dropbox token refresh failed: ${res.status} ${errorText}`);
+          throw new Error(
+            `Dropbox token refresh failed: ${res.status} ${errorText}`,
+          );
         }
 
         const data = (await res.json()) as any;
@@ -114,7 +121,8 @@ export async function retryWithBackoff<T>(
       }
 
       const isRateLimit =
-        error?.message?.includes('429') || error?.message?.toLowerCase().includes('rate limit');
+        error?.message?.includes('429') ||
+        error?.message?.toLowerCase().includes('rate limit');
       if (!isRateLimit && attempt > retries) {
         throw error;
       }
@@ -189,7 +197,11 @@ export async function fetchFilesRecursively(
       if (isDropbox) {
         childSource = child.path;
       }
-      const nested: any[] = await fetchFilesRecursively(childSource, sourceConfig, path);
+      const nested: any[] = await fetchFilesRecursively(
+        childSource,
+        sourceConfig,
+        path,
+      );
       result.push(...nested);
     }
   }
@@ -217,17 +229,18 @@ export function buildFolderPaths(files: MigrationFile[]) {
   // /Alrogithm/Sorting/FireShot Capture 006 - Sanemi Consultants I Aviation Leasing & Finance Solutions - [localhost].png
   const folderPaths = new Set<string>();
   for (const file of files) {
-   
     const parts = file.path.split('/');
     let current = '';
 
     for (let i = 0; i < parts.length - 1; i++) {
-      if(parts[i] !== ""){
-        current = current !== '' ? `${current}/${parts[i]}` : (parts[i] || "");
+      if (parts[i] !== '') {
+        current = current !== '' ? `${current}/${parts[i]}` : parts[i] || '';
         folderPaths.add(current);
       }
     }
   }
 
-  return [...folderPaths].sort((a, b) => a.split('/').length - b.split('/').length);
+  return [...folderPaths].sort(
+    (a, b) => a.split('/').length - b.split('/').length,
+  );
 }

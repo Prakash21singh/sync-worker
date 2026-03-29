@@ -34,14 +34,21 @@ export class Dropbox implements StorageAdapter<
     this.baseUrl = baseUrl;
   }
 
-  buildDownloadRequest(file: MigrationFilePayload, accessToken: string): DropboxDownloadRequest {
+  buildDownloadRequest(
+    file: MigrationFilePayload,
+    accessToken: string,
+  ): DropboxDownloadRequest {
     return {
       path: file.path,
       accessToken,
     };
   }
 
-  buildUploadRequest(file: MigrationFilePayload, data: Uint8Array, accessToken: string): DropboxUploadRequest {
+  buildUploadRequest(
+    file: MigrationFilePayload,
+    data: Uint8Array,
+    accessToken: string,
+  ): DropboxUploadRequest {
     return {
       pathname: file.path,
       data,
@@ -50,7 +57,6 @@ export class Dropbox implements StorageAdapter<
   }
 
   async uploadFile(params: DropboxUploadRequest): Promise<any> {
-
     const doUpload = async () => {
       const response = await fetch(`${this.baseUrl}/upload`, {
         method: 'POST',
@@ -67,7 +73,7 @@ export class Dropbox implements StorageAdapter<
         },
         body: params.data,
       });
-      
+
       if (!response.ok) {
         const text = await response.text();
         if (response.status === 429) {
@@ -148,22 +154,27 @@ export class Dropbox implements StorageAdapter<
     let files: any[] = [];
 
     const doList = async () => {
-      const response = await fetch(`${process.env.DROPBOX_BASE_FOLDER_API}/list_folder`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${process.env.DROPBOX_BASE_FOLDER_API}/list_folder`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            include_deleted: false,
+            include_has_explicit_shared_members: false,
+            include_media_info: true,
+            include_mounted_folders: true,
+            include_non_downloadable_files: true,
+            path:
+              `${parentSource.startsWith('/') ? parentSource : `/${parentSource}`}` ||
+              '',
+            recursive: false,
+          }),
         },
-        body: JSON.stringify({
-          include_deleted: false,
-          include_has_explicit_shared_members: false,
-          include_media_info: true,
-          include_mounted_folders: true,
-          include_non_downloadable_files: true,
-          path: `${parentSource.startsWith('/') ? parentSource : `/${parentSource}`}` || '',
-          recursive: false,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(await response.text());
@@ -193,14 +204,17 @@ export class Dropbox implements StorageAdapter<
 
     while (hasMore) {
       const continueFn = async () => {
-        const res = await fetch(`${process.env.DROPBOX_BASE_FOLDER_API}/list_folder/continue`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-            'Content-Type': 'application/json',
+        const res = await fetch(
+          `${process.env.DROPBOX_BASE_FOLDER_API}/list_folder/continue`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ cursor }),
           },
-          body: JSON.stringify({ cursor }),
-        });
+        );
 
         if (!res.ok) {
           throw new Error(await res.text());

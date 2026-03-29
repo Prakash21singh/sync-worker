@@ -8,19 +8,22 @@ export function getExportConfig(mimeType: string): ExportConfig {
   const map: Record<string, ExportConfig> = {
     'application/vnd.google-apps.document': {
       export: true,
-      exportMime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      exportMime:
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       extension: '.docx',
     },
 
     'application/vnd.google-apps.spreadsheet': {
       export: true,
-      exportMime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      exportMime:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       extension: '.xlsx',
     },
 
     'application/vnd.google-apps.presentation': {
       export: true,
-      exportMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      exportMime:
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       extension: '.pptx',
     },
 

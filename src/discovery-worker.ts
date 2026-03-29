@@ -36,7 +36,10 @@ const discoveryWorker = new Worker(
         });
 
         // Get the source adapter for straight forward updation
-        const sourceAdapter = await findAdapter({ id: migration.sourceAdapterId, userId });
+        const sourceAdapter = await findAdapter({
+          id: migration.sourceAdapterId,
+          userId,
+        });
 
         if (!sourceAdapter) throw new Error('Adapter Not Found');
 
@@ -60,7 +63,8 @@ const discoveryWorker = new Worker(
         // Collection of all files
         let flattenedFiles: NormalizedFile[] = [...files];
 
-        const isExpired = new Date(sourceAdapter.expires_in!).getTime() <= Date.now() + 60_000;
+        const isExpired =
+          new Date(sourceAdapter.expires_in!).getTime() <= Date.now() + 60_000;
 
         if (isExpired) {
           const rotated = await rotateToken(sourceAdapter);
@@ -116,7 +120,11 @@ const discoveryWorker = new Worker(
           migrationId,
         });
 
-        console.log('Migration for id ' + migrationId + ' has been initiated successfully!');
+        console.log(
+          'Migration for id ' +
+            migrationId +
+            ' has been initiated successfully!',
+        );
       } catch (error) {
         console.error('Error:', error);
       }

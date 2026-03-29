@@ -63,7 +63,9 @@ export interface DropboxUploadRequest {
   accessToken: string;
 }
 
-export type CloudUploadRequest = GoogleDriveUploadRequest | DropboxUploadRequest;
+export type CloudUploadRequest =
+  | GoogleDriveUploadRequest
+  | DropboxUploadRequest;
 
 export interface MigrationFilePayload {
   sourceId: string;
@@ -86,8 +88,16 @@ export interface StorageAdapter<
   listFiles(params: TListFilesParams): Promise<any[]>;
 
   // convenience helpers for the worker
-  buildDownloadRequest?: (file: MigrationFilePayload, token: string) => TDownloadParams;
-  buildUploadRequest?: (file: MigrationFilePayload, data: Uint8Array, token: string, folderIdMap: Map<string, string>) => TUploadParams;
+  buildDownloadRequest?: (
+    file: MigrationFilePayload,
+    token: string,
+  ) => TDownloadParams;
+  buildUploadRequest?: (
+    file: MigrationFilePayload,
+    data: Uint8Array,
+    token: string,
+    folderIdMap: Map<string, string>,
+  ) => TUploadParams;
 }
 
 export interface GoogleDriveCreateFolderRequest {
@@ -111,7 +121,6 @@ export interface DropboxListFilesRequest {
   parentSource: string;
   access_token: string;
 }
-
 
 export interface FileWithStatus {
   id: string;

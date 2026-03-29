@@ -48,7 +48,9 @@ export class GoogleDrive implements StorageAdapter<
     accessToken: string,
     folderIdMap: Map<string, string>,
   ): GoogleDriveUploadRequest {
-    const parentPath = file.path ? file.path.split('/').slice(1, -1).join('/') : '';
+    const parentPath = file.path
+      ? file.path.split('/').slice(1, -1).join('/')
+      : '';
     const parentId = parentPath ? folderIdMap.get(parentPath) : undefined;
 
     const request: GoogleDriveUploadRequest = {
@@ -84,7 +86,12 @@ export class GoogleDrive implements StorageAdapter<
       params = paramsOrMimeType as GoogleDriveDownloadRequest;
     }
 
-    const { accessToken: token, fileId: id, mimeType, exportMimeType: exportType } = params;
+    const {
+      accessToken: token,
+      fileId: id,
+      mimeType,
+      exportMimeType: exportType,
+    } = params;
 
     const fetchFn = async () => {
       const url = mimeType?.startsWith('application/vnd.google-apps')
@@ -132,24 +139,36 @@ export class GoogleDrive implements StorageAdapter<
     );
     const footer = Buffer.from(`\r\n--${boundary}--`, 'utf8');
 
-    const body = Buffer.concat([metadataPart, filePartHeader, Buffer.from(data), footer]);
+    const body = Buffer.concat([
+      metadataPart,
+      filePartHeader,
+      Buffer.from(data),
+      footer,
+    ]);
 
     const uploadFn = async () => {
-      const response = await fetch(`${process.env.GOOGLE_DRIVE_FILE_UPLOAD_URL ?? `${this.baseUrl}/upload/drive/v3/files`}?uploadType=multipart`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`,
+      const response = await fetch(
+        `${process.env.GOOGLE_DRIVE_FILE_UPLOAD_URL ?? `${this.baseUrl}/upload/drive/v3/files`}?uploadType=multipart`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+          },
+          body,
         },
-        body,
-      });
+      );
 
       if (!response.ok) {
         const text = await response.text();
         if (response.status === 429) {
-          throw new Error(`Google Drive upload rate limit: ${response.status} ${text}`);
+          throw new Error(
+            `Google Drive upload rate limit: ${response.status} ${text}`,
+          );
         }
-        throw new Error(`Google Drive upload failed: ${response.status} ${text}`);
+        throw new Error(
+          `Google Drive upload failed: ${response.status} ${text}`,
+        );
       }
 
       return await response.json();
@@ -179,7 +198,8 @@ export class GoogleDrive implements StorageAdapter<
         throw new Error(await response.text());
       }
 
-      const result = (await response.json()) as GoogleDriveFolderCreationResponse;
+      const result =
+        (await response.json()) as GoogleDriveFolderCreationResponse;
       return { id: result.id };
     };
 
@@ -223,7 +243,9 @@ export class GoogleDrive implements StorageAdapter<
 
       const mapped = data.files.map((file) => {
         const type: 'FOLDER' | 'FILE' =
-          file.mimeType === 'application/vnd.google-apps.folder' ? 'FOLDER' : 'FILE';
+          file.mimeType === 'application/vnd.google-apps.folder'
+            ? 'FOLDER'
+            : 'FILE';
 
         const { id, ...rest } = file;
         return {
