@@ -29,6 +29,8 @@
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "^7.4.1",
     "bullmq": "^5.70.1",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
     "dotenv": "^17.3.1",
     "ioredis": "^5.9.3",
     "pg": "^8.19.0",

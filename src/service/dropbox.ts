@@ -92,7 +92,7 @@ export class Dropbox implements FolderSupportingAdapter<
       return await response.json();
     };
 
-    return retryWithBackoff(doUpload, 4, 400);
+    return retryWithBackoff(doUpload, 4, 300);
   }
 
   async createFolder(params: TCreateFolderParams) {

@@ -10,7 +10,7 @@ import type {
   Adapter,
   Migration,
 } from '../types';
-import { retryWithBackoff } from '../utils/function';
+import { findParentPath, retryWithBackoff } from '../utils/function';
 
 type TUploadFileParams = GoogleDriveUploadRequest;
 
@@ -52,9 +52,7 @@ export class GoogleDrive implements FolderSupportingAdapter<
     migration: Migration,
     folderIdMap: Map<string, string>,
   ): GoogleDriveUploadRequest {
-    const parentPath = file.path
-      ? file.path.split('/').slice(1, -1).join('/')
-      : '';
+    const parentPath = findParentPath(file.path!);
     const parentId = parentPath ? folderIdMap.get(parentPath) : undefined;
 
     const request: GoogleDriveUploadRequest = {
@@ -178,7 +176,7 @@ export class GoogleDrive implements FolderSupportingAdapter<
       return await response.json();
     };
 
-    return retryWithBackoff(uploadFn, 4, 1000);
+    return retryWithBackoff(uploadFn, 4, 500);
   }
 
   async createFolder(params: TCreateFolderParams) {

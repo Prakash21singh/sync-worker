@@ -14,8 +14,37 @@ export function shouldSkip(adapter_type: AdapterType) {
   return false;
 }
 
+export function findParentPath(filePath: string): string {
+  const parts = filePath.split('/');
+  if (parts.length <= 1) return '';
+  return parts.slice(0, -1).join('/');
+}
 export function getFileExtention(name: string) {
   return name.slice(name.lastIndexOf('.'));
+}
+
+export /**
+ * Formats duration in milliseconds to human readable format
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    const remainingSeconds = seconds % 60;
+    return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
+  } else if (minutes > 0) {
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  } else {
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
 }
 
 export function isTokenExpiringSoon(

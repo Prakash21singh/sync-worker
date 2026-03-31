@@ -164,6 +164,6 @@ export class AWS_S3 implements BaseStorageAdapter<
       return await upload.done();
     };
 
-    return retryWithBackoff(doUpload, 4, 1000);
+    return retryWithBackoff(doUpload, 4, 500);
   }
 }

@@ -9,9 +9,11 @@ import {
   updateMigration,
   updateMigrationFile,
 } from './queries';
-import { buildFolderPaths } from './utils/function';
+import { buildFolderPaths, formatDuration } from './utils/function';
 import type { MigrationJobBody, Adapter, Migration } from './types';
 import type { MigrationFile } from '../prisma/generated/prisma/client';
+import Table from 'cli-table3';
+import chalk from 'chalk';
 
 // # Validate incoming job data and fetch necessary info from DB
 async function validateMigrationJob({
@@ -122,7 +124,7 @@ async function processFileTransfer(
   destinationAdapter: Adapter,
   migration: Migration,
   folderIdMap: Map<string, string>,
-): Promise<void> {
+): Promise<number> {
   const filePayload = {
     sourceId: file.sourceFileId,
     path: file.path!,
@@ -172,6 +174,8 @@ async function processFileTransfer(
 
   // Mark as completed
   await updateMigrationFile(file.id, 'COMPLETED');
+
+  return data.length; // Return file size in bytes
 }
 
 /**
@@ -183,7 +187,10 @@ async function processFileBatch(
   destinationAdapter: Adapter,
   migration: Migration,
   folderIdMap: Map<string, string>,
-): Promise<void> {
+): Promise<{
+  totalBytes: number;
+  failedFiles: { file: MigrationFile; error: string }[];
+}> {
   const transferTasks = fileBatch.map((file) =>
     processFileTransfer(
       file,
@@ -195,21 +202,33 @@ async function processFileBatch(
   );
 
   const results = await Promise.allSettled(transferTasks);
+  let totalBytes = 0;
+  const failedFiles: { file: MigrationFile; error: string }[] = [];
 
-  // Handle failed transfers
+  // Handle results
   for (let idx = 0; idx < results.length; idx++) {
     const result = results[idx];
     const file = fileBatch[idx];
-    if (result && result.status === 'rejected' && file) {
+    if (result && result.status === 'fulfilled' && file) {
+      totalBytes += result.value; // Add file size
+    } else if (result && result.status === 'rejected' && file) {
+      const errorMessage =
+        (result as PromiseRejectedResult).reason?.message || 'Unknown error';
+      failedFiles.push({ file, error: errorMessage });
       await updateMigrationFile(file.id, 'FAILED');
     }
   }
+
+  return { totalBytes, failedFiles };
 }
 
 /**
  * Updates the final migration status based on file results
  */
-async function finalizeMigration(migrationId: string): Promise<{
+async function finalizeMigration(
+  migrationId: string,
+  durationMs: number,
+): Promise<{
   totalFiles: number;
   completedCount: number;
   failedCount: number;
@@ -228,61 +247,12 @@ async function finalizeMigration(migrationId: string): Promise<{
     failedFiles: failedCount,
   });
 
-  return { totalFiles, completedCount, failedCount, status };
-}
-
-/**
- * Generates a formatted table for migration statistics
- */
-function formatMigrationTable(stats: {
-  totalFiles: number;
-  completedCount: number;
-  failedCount: number;
-  status: string;
-  duration: number;
-  successRate: string;
-  sourceProvider: string;
-  destinationProvider: string;
-}): string {
-  const table = `
-📊 Migration Summary
-═══════════════════════════════════════════════════════════════
-Total Files:        ${stats.totalFiles.toString().padStart(6)}
-Completed:          ${stats.completedCount.toString().padStart(6)}
-Failed:             ${stats.failedCount.toString().padStart(6)}
-Success Rate:       ${stats.successRate.padStart(6)}
-Duration:           ${formatDuration(stats.duration).padStart(6)}
-Status:             ${stats.status.padStart(6)}
-Source:             ${stats.sourceProvider.padStart(6)}
-Destination:        ${stats.destinationProvider.padStart(6)}
-═══════════════════════════════════════════════════════════════
-`;
-
-  return table;
-}
-
-/**
- * Formats duration in milliseconds to human readable format
- */
-function formatDuration(ms: number): string {
-  if (ms < 1000) {
-    return `${ms}ms`;
-  }
-
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) {
-    const remainingMinutes = minutes % 60;
-    const remainingSeconds = seconds % 60;
-    return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
-  } else if (minutes > 0) {
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
-  } else {
-    return `${(ms / 1000).toFixed(1)}s`;
-  }
+  return {
+    totalFiles,
+    completedCount,
+    failedCount,
+    status,
+  };
 }
 
 const worker = new Worker(
@@ -334,7 +304,10 @@ const worker = new Worker(
         }
 
         // Process files in batches
-        const BATCH_SIZE = 3;
+        const BATCH_SIZE = parseInt(
+          process.env.MIGRATION_BATCH_SIZE || '5',
+          10,
+        );
         logger.info(
           {
             migrationId,
@@ -344,48 +317,49 @@ const worker = new Worker(
           '⚡ Starting file transfer process',
         );
 
+        const allFailedFiles: { file: MigrationFile; error: string }[] = [];
+
         for (let i = 0; i < files.length; i += BATCH_SIZE) {
           const fileBatch = files.slice(i, i + BATCH_SIZE);
           const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 
-          logger.debug(
-            {
-              migrationId,
-              batchNumber,
-              filesInBatch: fileBatch.length,
-            },
-            `Processing batch ${batchNumber}`,
-          );
+          // Log batch progress every 5 batches to reduce overhead
+          if (
+            batchNumber % 5 === 1 ||
+            batchNumber === Math.ceil(files.length / BATCH_SIZE)
+          ) {
+            logger.debug(
+              {
+                migrationId,
+                batchNumber,
+                filesInBatch: fileBatch.length,
+                totalBatches: Math.ceil(files.length / BATCH_SIZE),
+              },
+              `Processing batch ${batchNumber}/${Math.ceil(files.length / BATCH_SIZE)}`,
+            );
+          }
 
-          await processFileBatch(
+          const { totalBytes, failedFiles } = await processFileBatch(
             fileBatch,
             sourceAdapter,
             destinationAdapter,
             migration,
             folderIdMap,
           );
+
+          allFailedFiles.push(...failedFiles);
         }
 
         // Finalize migration status
-        const stats = await finalizeMigration(migrationId);
+        const stats = await finalizeMigration(
+          migrationId,
+          Date.now() - startTime,
+        );
         const duration = Date.now() - startTime;
         const successRate =
           stats.totalFiles > 0
             ? ((stats.completedCount / stats.totalFiles) * 100).toFixed(1)
             : '0.0';
-
-        const tableData = {
-          totalFiles: stats.totalFiles,
-          completedCount: stats.completedCount,
-          failedCount: stats.failedCount,
-          status: stats.status,
-          duration,
-          successRate: `${successRate}%`,
-          sourceProvider: sourceAdapter.adapter_type,
-          destinationProvider: destinationAdapter.adapter_type,
-        };
-
-        const table = formatMigrationTable(tableData);
 
         logger.info(
           {
@@ -400,7 +374,7 @@ const worker = new Worker(
             sourceProvider: sourceAdapter.adapter_type,
             destinationProvider: destinationAdapter.adapter_type,
           },
-          `✅ Migration ${stats.status.toLowerCase()}\n${table}`,
+          `✅ Migration ${stats.status.toLowerCase()} after ${formatDuration(duration)} with success rate of ${successRate}%`,
         );
       }
     } catch (error: any) {
@@ -415,7 +389,6 @@ const worker = new Worker(
         },
         `❌ Migration failed after ${formatDuration(duration)}: ${error.message}`,
       );
-      // Note: In a production system, you might want to update migration status to FAILED here
     }
   },
   {
