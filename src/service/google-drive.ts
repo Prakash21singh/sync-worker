@@ -1,7 +1,7 @@
 import type {
   GoogleDriveFile,
   GoogleDriveFolderCreationResponse,
-  StorageAdapter,
+  FolderSupportingAdapter,
   GoogleDriveDownloadRequest,
   GoogleDriveUploadRequest,
   GoogleDriveCreateFolderRequest,
@@ -18,7 +18,7 @@ type TCreateFolderParams = GoogleDriveCreateFolderRequest;
 
 type TListFileParams = GoogleDriveListFilesRequest;
 
-export class GoogleDrive implements StorageAdapter<
+export class GoogleDrive implements FolderSupportingAdapter<
   TDownloadParams,
   TUploadFileParams,
   TCreateFolderParams,
@@ -207,7 +207,7 @@ export class GoogleDrive implements StorageAdapter<
   }
 
   async listFiles(params: TListFileParams) {
-    const { access_token, parentPath, parentSource } = params;
+    const { accessToken, parentPath, parentSource } = params;
     let files: any[] = [];
     let pageToken: string | undefined;
 
@@ -224,7 +224,7 @@ export class GoogleDrive implements StorageAdapter<
       const response = await retryWithBackoff(
         async () =>
           await fetch(`${process.env.GOOGLE_DRIVE_BASE_URL}?${query}`, {
-            headers: { Authorization: `Bearer ${access_token}` },
+            headers: { Authorization: `Bearer ${accessToken}` },
           }),
         3,
         400,

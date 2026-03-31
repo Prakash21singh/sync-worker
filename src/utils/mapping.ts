@@ -1,7 +1,8 @@
 import type { _Object } from '@aws-sdk/client-s3';
 import type { DropboxFolderEntry } from '../service/dropbox';
 import type { NormalizedFile } from '../types';
-import { normalizeName } from './function';
+import { normalizeName, getFileExtention } from './function';
+import { getExportMimeTypeFromExtension } from '.';
 
 export const normalizeMigrationFile = (
   files: NormalizedFile[],
@@ -32,12 +33,13 @@ export const normalizeDropboxFiles = (
 
 export const normalizeS3Objects = (
   objects: _Object[],
-): Omit<NormalizedFile, 'migrationId' | 'id' | 'mimeType'>[] => {
+): Omit<NormalizedFile, 'migrationId' | 'id'>[] => {
   return objects.map((object) => ({
     name: normalizeName(object.Key || ''),
     path: object.Key!,
     size: object.Size!,
-    sourceId: object.ETag!,
+    sourceId: object.Key!,
     type: 'FILE',
+    mimeType: getExportMimeTypeFromExtension(getFileExtention(object.Key!)),
   }));
 };

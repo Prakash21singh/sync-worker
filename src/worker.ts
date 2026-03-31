@@ -54,16 +54,16 @@ const worker = new Worker(
           let createdFolder;
 
           if (destinationAdapter.adapter_type === 'GOOGLE_DRIVE') {
-            createdFolder = await DestinationAdapter.createFolder({
+            createdFolder = await (DestinationAdapter as any).createFolder({
               accessToken: destinationAdapter.access_token,
               folderName,
               parentId,
-            } as any);
+            });
           } else if (destinationAdapter.adapter_type === 'DROPBOX') {
-            createdFolder = await DestinationAdapter.createFolder({
+            createdFolder = await (DestinationAdapter as any).createFolder({
               accessToken: destinationAdapter.access_token,
               parentPath: folder as string,
-            } as any);
+            });
           }
 
           if (createdFolder) folderIdMap.set(folder, createdFolder.id);
@@ -108,8 +108,8 @@ const worker = new Worker(
               throw new Error(`Error downloading file ${file.name}`);
             }
 
-            const uploadRequest = DestinationAdapter.buildUploadRequest
-              ? DestinationAdapter.buildUploadRequest(
+            const uploadRequest = (DestinationAdapter as any).buildUploadRequest
+              ? (DestinationAdapter as any).buildUploadRequest(
                   filePayload,
                   data,
                   destinationAdapter!.access_token!,
@@ -121,7 +121,7 @@ const worker = new Worker(
                   accessToken: destinationAdapter!.access_token!,
                 } as any);
 
-            await DestinationAdapter.uploadFile(uploadRequest);
+            await (DestinationAdapter as any).uploadFile(uploadRequest);
             await updateMigrationFile(file.id, 'COMPLETED');
           });
 

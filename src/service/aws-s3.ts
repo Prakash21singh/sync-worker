@@ -5,18 +5,17 @@ import {
 } from '@aws-sdk/client-s3';
 import type {
   AdapterType,
+  BaseStorageAdapter,
   MigrationFilePayload,
   S3CreateObjectRequest,
   S3DownloadRequest,
   S3ListObjectRequest,
-  StorageAdapter,
 } from '../types';
 import { normalizeS3Objects } from '../utils/mapping';
 
-export class AWS_S3 implements StorageAdapter<
+export class AWS_S3 implements BaseStorageAdapter<
   S3DownloadRequest,
   S3CreateObjectRequest,
-  null,
   S3ListObjectRequest
 > {
   adapterType: 'AWS_S3' = 'AWS_S3';
@@ -32,7 +31,6 @@ export class AWS_S3 implements StorageAdapter<
     token: string,
     folderIdMap: Map<string, string>,
   ) => S3CreateObjectRequest;
-
 
   downloadFile(params: S3DownloadRequest): Promise<Uint8Array> {
     throw new Error('Not implemented yet!');
@@ -78,5 +76,3 @@ export class AWS_S3 implements StorageAdapter<
     throw new Error('Not implemented yet!');
   }
 }
-
-

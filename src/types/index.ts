@@ -55,17 +55,15 @@ export interface MigrationFilePayload {
 
 // ─── Storage Adapter Interface ────────────────────────────────────────────────
 
-export interface StorageAdapter<
+export interface BaseStorageAdapter<
   TDownloadParams,
   TUploadParams,
-  TCreateFolderParams,
   TListFilesParams,
 > {
   adapterType: AdapterType;
 
   downloadFile(params: TDownloadParams): Promise<Uint8Array>;
   uploadFile(params: TUploadParams): Promise<any>;
-  createFolder?:(params: TCreateFolderParams) => Promise<{ id: string } | null>;
   listFiles(params: TListFilesParams): Promise<any[]>;
 
   buildDownloadRequest?: (
@@ -79,6 +77,15 @@ export interface StorageAdapter<
     token: string,
     folderIdMap: Map<string, string>,
   ) => TUploadParams;
+}
+
+export interface FolderSupportingAdapter<
+  TDownloadParams,
+  TUploadParams,
+  TCreateFolderParams,
+  TListFilesParams,
+> extends BaseStorageAdapter<TDownloadParams, TUploadParams, TListFilesParams> {
+  createFolder(params: TCreateFolderParams): Promise<{ id: string } | null>;
 }
 
 // ─── Google Drive ─────────────────────────────────────────────────────────────
@@ -165,7 +172,6 @@ export interface S3ListObjectRequest {
   bucket: string;
   prefix: string;
 }
-
 
 // ─── Union Types ──────────────────────────────────────────────────────────────
 

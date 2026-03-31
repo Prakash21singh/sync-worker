@@ -1,5 +1,5 @@
 import type {
-  StorageAdapter,
+  FolderSupportingAdapter,
   DropboxDownloadRequest,
   DropboxUploadRequest,
   DropboxCreateFolderRequest,
@@ -22,7 +22,7 @@ export type DropboxFolderEntry = {
   size: number;
 };
 
-export class Dropbox implements StorageAdapter<
+export class Dropbox implements FolderSupportingAdapter<
   TDownloadParams,
   TUploadFileParams,
   TCreateFolderParams,

@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import type { AdpaterUpdate } from '../types';
+import type { AdapterUpdate } from '../types';
 
 export const findAdapter = async ({
   userId,
@@ -21,7 +21,7 @@ export const updateAdapter = async ({
   data,
 }: {
   id: string;
-  data: AdpaterUpdate;
+  data: AdapterUpdate;
 }) => {
   await prisma.adapter.update({
     where: {

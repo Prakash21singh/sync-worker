@@ -70,6 +70,7 @@ const discoveryWorker = new Worker(
           const { source, credentials } = getProviderConfig(
             sourceAdapter,
             folder,
+            migration,
           );
 
           const nestedFiles = await fetchFilesRecursively({
@@ -105,6 +106,7 @@ const discoveryWorker = new Worker(
         );
       } catch (error) {
         console.error('Error:', error);
+        throw error;
       }
     }
   },

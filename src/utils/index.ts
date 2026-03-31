@@ -1,4 +1,5 @@
 import { getExportConfig } from './export-type';
+export { default as logger } from './logger';
 
 export function generateFileConfig(
   mime: string | null,

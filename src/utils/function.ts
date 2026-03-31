@@ -1,15 +1,21 @@
 import type {
   Adapter,
+  Migration,
   MigrationFile,
   MigrationSelection,
 } from '../../prisma/generated/prisma/client';
 import { updateAdapter } from '../queries';
 import { AdapterFactory } from '../service/adapter-factory';
 import type { AdapterType, CredentialsInfo, NormalizedFile } from '../types';
+import { logger } from './index';
 
 export function shouldSkip(adapter_type: AdapterType) {
   if (adapter_type === 'AWS_S3') return true;
   return false;
+}
+
+export function getFileExtention(name: string) {
+  return name.slice(name.lastIndexOf('.'));
 }
 
 export function isTokenExpiringSoon(
@@ -59,42 +65,6 @@ export async function validateAndRotateToken(adapter: Partial<Adapter>) {
   }
 }
 
-export function requiredCredentials(adapter: Adapter) {
-  let credentials: CredentialsInfo = {
-    adapterType: adapter.adapter_type,
-    googleAndDropbox: {},
-    s3: {},
-  };
-
-  if (adapter.access_token) {
-    credentials.googleAndDropbox.accessToken = adapter.access_token;
-  }
-
-  if (adapter.refresh_token) {
-    credentials.googleAndDropbox.refreshToken = adapter.refresh_token;
-  }
-
-  if (adapter.expires_in) {
-    credentials.googleAndDropbox.expiresIn = adapter.expires_in;
-  }
-
-  if (adapter.accessKeyId) {
-    credentials.s3.accessKeyId = adapter.accessKeyId;
-  }
-  if (adapter.accessKeySecret) {
-    credentials.s3.accessKeySecret = adapter.accessKeySecret;
-  }
-  if (adapter.region) {
-    credentials.s3.region = adapter.region;
-  }
-
-  if (adapter.bucket) {
-    credentials.s3.bucket = adapter.bucket;
-  }
-
-  return credentials;
-}
-
 export async function rotateToken(adapter: Partial<Adapter>): Promise<{
   access_token: string;
   expires_in: number;
@@ -131,7 +101,7 @@ export async function rotateToken(adapter: Partial<Adapter>): Promise<{
           refresh_token: data.refresh_token,
         };
       } catch (error: any) {
-        console.log('Google Token Refresh Error: ', error.message);
+        logger.error({ err: error }, 'Google Token Refresh Error');
         return null;
       }
     }
@@ -172,7 +142,7 @@ export async function rotateToken(adapter: Partial<Adapter>): Promise<{
     }
     return null;
   } catch (error: any) {
-    console.log('Error rotating token:', error);
+    logger.error({ err: error }, 'Error rotating token');
     return null;
   }
 }
@@ -235,6 +205,7 @@ interface FilesParams {
 export function getProviderConfig(
   adapter: Adapter,
   folder: MigrationSelection,
+  migration?: Migration,
 ): Omit<FilesParams, 'adapter_type'> {
   const resolvers: Record<
     AdapterType,
@@ -261,13 +232,13 @@ export function getProviderConfig(
 
     AWS_S3: () => ({
       source: {
-        prefix: folder.path || '/',
+        prefix: `${folder.name}/` || '/',
       },
       credentials: {
         accessKeyId: adapter.accessKeyId!,
         accessKeySecret: adapter.accessKeySecret!,
         region: adapter.region!,
-        bucket: adapter.bucket!,
+        bucket: migration?.bucket!,
       },
     }),
   };
@@ -300,24 +271,30 @@ export async function fetchFilesRecursively(
 
   const SourceAdapter = AdapterFactory.getAdapter(adapter_type);
 
-  const fileListingParams = {
-    accessToken: credentials.access_token!,
-    parentSource: parentSource!,
-    parentPath: source.parentPath!,
-    ...(source.prefix ? { prefix: source.prefix } : {}),
-    ...(credentials.accessKeyId
-      ? { acesssKeyId: credentials.accessKeyId }
-      : {}),
-    ...(credentials.accessKeySecret
-      ? { accessKeySecret: credentials.accessKeySecret }
-      : {}),
-    ...(credentials.bucket ? { bucket: credentials.bucket } : {}),
-    ...(credentials.region ? { region: credentials.region } : {}),
-  };
+  let listFilesParams: any;
 
-  const files = await SourceAdapter.listFiles({
-    ...fileListingParams,
-  });
+  if (adapter_type === 'AWS_S3') {
+    listFilesParams = {
+      accessKeyId: credentials.accessKeyId!,
+      accessSecretKey: credentials.accessKeySecret!,
+      region: credentials.region!,
+      bucket: credentials.bucket!,
+      prefix: source.prefix || '',
+    };
+  } else if (adapter_type === 'GOOGLE_DRIVE') {
+    listFilesParams = {
+      parentSource: parentSource!,
+      parentPath: source.parentPath!,
+      accessToken: credentials.access_token!,
+    };
+  } else if (adapter_type === 'DROPBOX') {
+    listFilesParams = {
+      parentSource: parentSource!,
+      accessToken: credentials.access_token!,
+    };
+  }
+
+  const files = await SourceAdapter.listFiles(listFilesParams);
 
   const result: NormalizedFile[] = [];
 
@@ -355,7 +332,6 @@ export async function fetchFilesRecursively(
  * @returns Folders paths
  * @description Build folder path and in length based sorting so parent folder get's created first
  * @example ```
- *
  * const folders = [
  *  "/FolderA",
  *  "/FolderB",
@@ -371,7 +347,7 @@ export function buildFolderPaths(files: MigrationFile[]) {
   // /Alrogithm/Sorting/FireShot Capture 006 - Sanemi Consultants I Aviation Leasing & Finance Solutions - [localhost].png
   const folderPaths = new Set<string>();
   for (const file of files) {
-    const parts = file.path.split('/');
+    const parts = file.path!.split('/');
     let current = '';
 
     for (let i = 0; i < parts.length - 1; i++) {
@@ -388,11 +364,5 @@ export function buildFolderPaths(files: MigrationFile[]) {
 }
 
 export function normalizeName(name: string) {
-  if (name.lastIndexOf('.') !== -1) {
-    return name.slice(0, name.lastIndexOf('.'));
-  } else if (name.endsWith('/')) {
-    return name.slice(0, -1);
-  } else {
-    return name;
-  }
+  return name.slice(name.lastIndexOf('/') + 1, name.lastIndexOf('.'));
 }
