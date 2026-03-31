@@ -5,6 +5,8 @@ import type {
   DropboxCreateFolderRequest,
   DropboxListFilesRequest,
   MigrationFilePayload,
+  Adapter,
+  Migration,
 } from '../types';
 import { retryWithBackoff } from '../utils/function';
 import { normalizeDropboxFiles } from '../utils/mapping';
@@ -37,23 +39,25 @@ export class Dropbox implements FolderSupportingAdapter<
 
   buildDownloadRequest(
     file: MigrationFilePayload,
-    accessToken: string,
+    adapter: Adapter,
+    migration: Migration,
   ): DropboxDownloadRequest {
     return {
       path: file.path,
-      accessToken,
+      accessToken: adapter.access_token!,
     };
   }
 
   buildUploadRequest(
     file: MigrationFilePayload,
     data: Uint8Array,
-    accessToken: string,
+    adapter: Adapter,
+    migration: Migration,
   ): DropboxUploadRequest {
     return {
       pathname: file.path,
       data,
-      accessToken,
+      accessToken: adapter.access_token!,
     };
   }
 

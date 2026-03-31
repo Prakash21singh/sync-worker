@@ -1,4 +1,7 @@
 import type { MigrationFileStatus } from '../../prisma/generated/prisma/enums';
+import type { Adapter, Migration } from '../../prisma/generated/prisma/client';
+
+export type { Adapter, Migration };
 
 // ─── Core / Shared ────────────────────────────────────────────────────────────
 
@@ -68,13 +71,15 @@ export interface BaseStorageAdapter<
 
   buildDownloadRequest?: (
     file: MigrationFilePayload,
-    token: string,
+    adapter: Adapter,
+    migration: Migration,
   ) => TDownloadParams;
 
   buildUploadRequest?: (
     file: MigrationFilePayload,
     data: Uint8Array,
-    token: string,
+    adapter: Adapter,
+    migration: Migration,
     folderIdMap: Map<string, string>,
   ) => TUploadParams;
 }
@@ -158,11 +163,21 @@ export interface DropboxListFilesRequest {
 // ─── AWS S3 ───────────────────────────────────────────────────────────────────
 
 export interface S3DownloadRequest {
-  something: string;
+  accessKeyId: string;
+  accessSecretKey: string;
+  region: string;
+  bucket: string;
+  key: string;
 }
 
 export interface S3CreateObjectRequest {
-  something: string;
+  accessKeyId: string;
+  accessSecretKey: string;
+  region: string;
+  bucket: string;
+  key: string;
+  body: Uint8Array;
+  contentType?: string;
 }
 
 export interface S3ListObjectRequest {

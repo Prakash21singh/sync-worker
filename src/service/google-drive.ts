@@ -7,6 +7,8 @@ import type {
   GoogleDriveCreateFolderRequest,
   GoogleDriveListFilesRequest,
   MigrationFilePayload,
+  Adapter,
+  Migration,
 } from '../types';
 import { retryWithBackoff } from '../utils/function';
 
@@ -32,20 +34,22 @@ export class GoogleDrive implements FolderSupportingAdapter<
   }
 
   buildDownloadRequest(
-    file: { sourceId: string; mimeType?: string | null },
-    accessToken: string,
+    file: MigrationFilePayload,
+    adapter: Adapter,
+    migration: Migration,
   ): GoogleDriveDownloadRequest {
     return {
       fileId: file.sourceId,
       mimeType: file.mimeType || 'application/octet-stream',
-      accessToken,
+      accessToken: adapter.access_token!,
     };
   }
 
   buildUploadRequest(
     file: MigrationFilePayload,
     data: Uint8Array,
-    accessToken: string,
+    adapter: Adapter,
+    migration: Migration,
     folderIdMap: Map<string, string>,
   ): GoogleDriveUploadRequest {
     const parentPath = file.path
@@ -57,7 +61,7 @@ export class GoogleDrive implements FolderSupportingAdapter<
       name: file.name,
       data,
       uploadMediaType: file.mimeType || 'application/octet-stream',
-      accessToken,
+      accessToken: adapter.access_token!,
     };
 
     if (parentId) {
