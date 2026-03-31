@@ -1,17 +1,21 @@
+import 'dotenv/config';
 import { Worker } from 'bullmq';
 import { redis } from './lib/redis';
 import type { NormalizedFile } from './types';
 import { migrationQueue } from './queue/migration-queue';
-import 'dotenv/config';
+import { normalizeMigrationFile } from './utils/mapping';
 import {
-  createMigrationFiles,
   findAdapter,
   findMigration,
-  findMigrationSelections,
-  updateAdapter,
   updateMigration,
+  createMigrationFiles,
+  findMigrationSelections,
 } from './queries';
-import { fetchFilesRecursively, rotateToken } from './utils/function';
+import {
+  getProviderConfig,
+  fetchFilesRecursively,
+  validateAndRotateToken,
+} from './utils/function';
 
 const discoveryWorker = new Worker(
   process.env.DISCOVERY_QUEUE_NAME!,
@@ -30,12 +34,10 @@ const discoveryWorker = new Worker(
           throw new Error('Migration not found');
         }
 
-        // Update the migration
         await updateMigration(migrationId, {
           status: 'DISCOVERING',
         });
 
-        // Get the source adapter for straight forward updation
         const sourceAdapter = await findAdapter({
           id: migration.sourceAdapterId,
           userId,
@@ -46,7 +48,6 @@ const discoveryWorker = new Worker(
         const files = [];
         const folders = [];
 
-        // Seperation of concern between file and folders
         for (const selection of migrationSelections) {
           if (selection.type === 'FILE') {
             files.push({
@@ -60,53 +61,30 @@ const discoveryWorker = new Worker(
             });
           }
         }
-        // Collection of all files
+
         let flattenedFiles: NormalizedFile[] = [...files];
 
-        const isExpired =
-          new Date(sourceAdapter.expires_in!).getTime() <= Date.now() + 60_000;
-
-        if (isExpired) {
-          const rotated = await rotateToken(sourceAdapter);
-          await updateAdapter({
-            id: sourceAdapter.id,
-            data: {
-              access_token: rotated!.access_token,
-              expires_in: new Date(Date.now() + rotated!.expires_in * 1000),
-              ...(rotated!.refresh_token && {
-                refresh_token: rotated!.refresh_token,
-              }),
-            },
-          });
-
-          // Update the currect source adapter so this current execution environment have the updated token.
-          sourceAdapter.access_token = rotated!.access_token;
-        }
+        await validateAndRotateToken(sourceAdapter);
 
         for (const folder of folders) {
-          // Intuition is to get all the normalised files inside every folder;
-          const nestedFiles = await fetchFilesRecursively(
-            folder.sourceId,
-            {
-              access_token: sourceAdapter.access_token!,
-              adapter_type: sourceAdapter.adapter_type!,
-            },
-            folder.name,
+          const { source, credentials } = getProviderConfig(
+            sourceAdapter,
+            folder,
           );
+
+          const nestedFiles = await fetchFilesRecursively({
+            source,
+            credentials,
+            adapter_type: sourceAdapter.adapter_type,
+          });
+
           flattenedFiles.push(...nestedFiles);
         }
 
-        const migrationFiles = flattenedFiles.map((file) => {
-          return {
-            path: file.path || '',
-            name: file.name,
-            mimeType: file.mimeType,
-            migrationId: migration.id,
-            sourceFileId: file.sourceId || file.id,
-            status: 'PENDING',
-            size: Number(file.size),
-          };
-        });
+        const migrationFiles = normalizeMigrationFile(
+          flattenedFiles,
+          migration.id,
+        );
 
         await createMigrationFiles(migrationFiles);
 

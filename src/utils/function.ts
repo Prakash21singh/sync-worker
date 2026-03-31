@@ -1,25 +1,100 @@
 import type {
   Adapter,
   MigrationFile,
+  MigrationSelection,
 } from '../../prisma/generated/prisma/client';
+import { updateAdapter } from '../queries';
 import { AdapterFactory } from '../service/adapter-factory';
+import type { AdapterType, CredentialsInfo, NormalizedFile } from '../types';
 
-/**
- * @description Rotating the adapter access token for communicating to the external services
- * ```
- *     if(adapter.adapter_type === "GOOGLE_DRIVE"){
- *          // Token rotation logic of google drive
- *     }
- *
- *     if(adapter.adapter_type === "DROPBOX"){
- *          // Token rotation logic of dropbox
- *     }
- *
- *     // In case of extension of adapters add documentation as well as extension.
- * ```
- * @param adapter
- * @returns
- */
+export function shouldSkip(adapter_type: AdapterType) {
+  if (adapter_type === 'AWS_S3') return true;
+  return false;
+}
+
+export function isTokenExpiringSoon(
+  expiresIn: Date,
+  bufferMs: number = 2 * 60 * 1000,
+): boolean {
+  const expiresInMs = new Date(expiresIn).getTime();
+  const nowWithBuffer = Date.now() + bufferMs;
+  return expiresInMs <= nowWithBuffer;
+}
+
+export async function doesRequireTokenRotation(
+  adapter: Partial<Adapter>,
+): Promise<boolean> {
+  if (shouldSkip(adapter.adapter_type!)) return false;
+  if (!adapter.expires_in) return false;
+
+  return isTokenExpiringSoon(adapter.expires_in);
+}
+
+export async function validateAndRotateToken(adapter: Partial<Adapter>) {
+  const requireRotation = await doesRequireTokenRotation(adapter);
+
+  if (!requireRotation) return;
+
+  const rotated = await rotateToken(adapter);
+
+  if (!rotated) {
+    throw new Error(`Token rotation returned null for adapter ${adapter.id}`);
+  }
+
+  const newExpiresIn = new Date(Date.now() + rotated.expires_in * 1000);
+
+  await updateAdapter({
+    id: adapter.id!,
+    data: {
+      access_token: rotated.access_token,
+      expires_in: newExpiresIn,
+      ...(rotated.refresh_token && { refresh_token: rotated.refresh_token }),
+    },
+  });
+
+  adapter.access_token = rotated.access_token;
+  adapter.expires_in = newExpiresIn;
+  if (rotated.refresh_token) {
+    adapter.refresh_token = rotated.refresh_token;
+  }
+}
+
+export function requiredCredentials(adapter: Adapter) {
+  let credentials: CredentialsInfo = {
+    adapterType: adapter.adapter_type,
+    googleAndDropbox: {},
+    s3: {},
+  };
+
+  if (adapter.access_token) {
+    credentials.googleAndDropbox.accessToken = adapter.access_token;
+  }
+
+  if (adapter.refresh_token) {
+    credentials.googleAndDropbox.refreshToken = adapter.refresh_token;
+  }
+
+  if (adapter.expires_in) {
+    credentials.googleAndDropbox.expiresIn = adapter.expires_in;
+  }
+
+  if (adapter.accessKeyId) {
+    credentials.s3.accessKeyId = adapter.accessKeyId;
+  }
+  if (adapter.accessKeySecret) {
+    credentials.s3.accessKeySecret = adapter.accessKeySecret;
+  }
+  if (adapter.region) {
+    credentials.s3.region = adapter.region;
+  }
+
+  if (adapter.bucket) {
+    credentials.s3.bucket = adapter.bucket;
+  }
+
+  return credentials;
+}
+
 export async function rotateToken(adapter: Partial<Adapter>): Promise<{
   access_token: string;
   expires_in: number;
@@ -140,68 +215,135 @@ export async function retryWithBackoff<T>(
  * @param parentPath for creating the parent path for the migration file creation
  * @returns Array of files for all the recursive folders
  */
+
+interface FilesParams {
+  source: {
+    parentId?: string;
+    parentPath?: string;
+    prefix?: string;
+  };
+  credentials: {
+    access_token?: string;
+    accessKeyId?: string;
+    accessKeySecret?: string;
+    region?: string;
+    bucket?: string;
+  };
+  adapter_type: AdapterType;
+}
+
+export function getProviderConfig(
+  adapter: Adapter,
+  folder: MigrationSelection,
+): Omit<FilesParams, 'adapter_type'> {
+  const resolvers: Record<
+    AdapterType,
+    () => Omit<FilesParams, 'adapter_type'>
+  > = {
+    GOOGLE_DRIVE: () => ({
+      source: {
+        parentId: folder.sourceId,
+        parentPath: folder.name,
+      },
+      credentials: {
+        access_token: adapter.access_token!,
+      },
+    }),
+
+    DROPBOX: () => ({
+      source: {
+        parentPath: folder.name,
+      },
+      credentials: {
+        access_token: adapter.access_token!,
+      },
+    }),
+
+    AWS_S3: () => ({
+      source: {
+        prefix: folder.path || '/',
+      },
+      credentials: {
+        accessKeyId: adapter.accessKeyId!,
+        accessKeySecret: adapter.accessKeySecret!,
+        region: adapter.region!,
+        bucket: adapter.bucket!,
+      },
+    }),
+  };
+
+  const resolver = resolvers[adapter.adapter_type];
+
+  if (!resolver) {
+    throw new Error(`Unsupported adapter type: ${adapter.adapter_type}`);
+  }
+
+  return resolver();
+}
+
 export async function fetchFilesRecursively(
-  parentId: string,
-  sourceConfig: {
-    access_token: string;
-    adapter_type: 'GOOGLE_DRIVE' | 'DROPBOX';
-  },
-  parentPath?: string,
-) {
-  let result = [];
+  params: FilesParams,
+): Promise<NormalizedFile[]> {
+  const { source, credentials, adapter_type } = params;
 
-  let isDropbox = sourceConfig.adapter_type === 'DROPBOX';
-  let isGoogleDrive = sourceConfig.adapter_type === 'GOOGLE_DRIVE';
-  let parentSource;
+  const isDropbox = adapter_type === 'DROPBOX';
+  const isGoogleDrive = adapter_type === 'GOOGLE_DRIVE';
+  const isS3 = adapter_type === 'AWS_S3';
 
-  if (isDropbox) {
-    parentSource = parentPath;
-  }
-  if (isGoogleDrive) {
-    parentSource = parentId;
-  }
+  const parentSource = isGoogleDrive
+    ? source.parentId
+    : isDropbox
+      ? source.parentPath
+      : isS3
+        ? source.prefix
+        : null;
 
-  const SourceAdapter = AdapterFactory.getAdapter(sourceConfig.adapter_type);
+  const SourceAdapter = AdapterFactory.getAdapter(adapter_type);
 
-  // Ensure backward compatibility before changing things;
-  /**
-   * For google it needed the parentSource and parentPath to create the list of files
-   * For Dropbox it needed the parentSource(Pathname) to create the list of files
-   */
-  const files = await SourceAdapter.listFiles({
-    access_token: sourceConfig.access_token!,
+  const fileListingParams = {
+    accessToken: credentials.access_token!,
     parentSource: parentSource!,
-    parentPath: parentPath!,
+    parentPath: source.parentPath!,
+    ...(source.prefix ? { prefix: source.prefix } : {}),
+    ...(credentials.accessKeyId
+      ? { acesssKeyId: credentials.accessKeyId }
+      : {}),
+    ...(credentials.accessKeySecret
+      ? { accessKeySecret: credentials.accessKeySecret }
+      : {}),
+    ...(credentials.bucket ? { bucket: credentials.bucket } : {}),
+    ...(credentials.region ? { region: credentials.region } : {}),
+  };
+
+  const files = await SourceAdapter.listFiles({
+    ...fileListingParams,
   });
 
-  for (const child of files) {
-    let path;
-    if (isGoogleDrive) {
-      path = parentPath ? `${parentPath}/${child.name}` : child.name;
-    }
+  const result: NormalizedFile[] = [];
 
-    if (isDropbox) {
-      path = child.path;
-    }
+  for (const child of files) {
+    // Here falsy value contains for both dropbox and s3
+    const path = isGoogleDrive
+      ? source.parentPath
+        ? `${source.parentPath.replace(/\/$/, '')}/${child.name}`
+        : child.name
+      : child.path;
 
     if (child.type === 'FILE') {
-      result.push({
-        ...child,
-        path,
-      });
+      result.push({ ...child, path });
     } else {
-      let childSource;
-      if (isGoogleDrive) {
-        childSource = child.sourceId;
-      }
-      if (isDropbox) {
-        childSource = child.path;
-      }
-      const nested: any[] = await fetchFilesRecursively(
-        childSource,
-        sourceConfig,
-        path,
-      );
+      const childParentId = isGoogleDrive ? child.sourceId : undefined;
+      const childParentPath = isDropbox ? child.path : path;
+
+      const nested = await fetchFilesRecursively({
+        source: {
+          parentId: childParentId,
+          parentPath: childParentPath,
+        },
+        credentials,
+        adapter_type,
+      });
+
       result.push(...nested);
     }
   }
@@ -243,4 +385,14 @@ export function buildFolderPaths(files: MigrationFile[]) {
   return [...folderPaths].sort(
     (a, b) => a.split('/').length - b.split('/').length,
   );
+}
+
+export function normalizeName(name: string) {
+  if (name.lastIndexOf('.') !== -1) {
+    return name.slice(0, name.lastIndexOf('.'));
+  } else if (name.endsWith('/')) {
+    return name.slice(0, -1);
+  } else {
+    return name;
+  }
 }

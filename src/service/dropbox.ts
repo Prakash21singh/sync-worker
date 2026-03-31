@@ -7,13 +7,14 @@ import type {
   MigrationFilePayload,
 } from '../types';
 import { retryWithBackoff } from '../utils/function';
+import { normalizeDropboxFiles } from '../utils/mapping';
 
 type TUploadFileParams = DropboxUploadRequest;
 type TDownloadParams = DropboxDownloadRequest;
 type TCreateFolderParams = DropboxCreateFolderRequest;
 type TListFileParams = DropboxListFilesRequest;
 
-type DropboxFolderEntry = {
+export type DropboxFolderEntry = {
   ['.tag']: 'file' | 'folder';
   name: string;
   path_display: string;
@@ -150,7 +151,7 @@ export class Dropbox implements StorageAdapter<
   }
 
   async listFiles(args: TListFileParams) {
-    const { parentSource, access_token } = args;
+    const { parentSource, accessToken } = args;
     let files: any[] = [];
 
     const doList = async () => {
@@ -159,7 +160,7 @@ export class Dropbox implements StorageAdapter<
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${access_token}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -189,13 +190,7 @@ export class Dropbox implements StorageAdapter<
       has_more: boolean;
     };
 
-    const mapped = result.entries.map((entry: DropboxFolderEntry) => ({
-      name: entry.name,
-      sourceId: entry.id,
-      path: entry.path_display,
-      size: entry.size,
-      type: entry['.tag'] === 'file' ? 'FILE' : 'FOLDER',
-    }));
+    const mapped = normalizeDropboxFiles(result.entries);
 
     files.push(...mapped);
 
@@ -209,7 +204,7 @@ export class Dropbox implements StorageAdapter<
           {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${access_token}`,
+              Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ cursor }),
@@ -229,13 +224,7 @@ export class Dropbox implements StorageAdapter<
         has_more: boolean;
       };
 
-      const mappedPage = data.entries.map((entry: DropboxFolderEntry) => ({
-        name: entry.name,
-        sourceId: entry.id,
-        path: entry.path_display,
-        size: entry.size,
-        type: entry['.tag'] === 'file' ? 'FILE' : 'FOLDER',
-      }));
+      const mappedPage = normalizeDropboxFiles(data.entries);
 
       files.push(...mappedPage);
 
